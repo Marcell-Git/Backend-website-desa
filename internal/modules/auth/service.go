@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
+	"rt26/backend/internal/database"
 	"rt26/backend/internal/middleware"
 	"rt26/backend/internal/pkg/helper"
 )
@@ -19,57 +20,57 @@ var (
 )
 
 type Service struct {
-	Pool        *pgxpool.Pool
+	DB          *gorm.DB
 	JWTSecret   string
 	AccessMin   int
 	RefreshDays int
 }
 
-func NewService(pool *pgxpool.Pool, secret string, accessMin, refreshDays int) *Service {
-	return &Service{Pool: pool, JWTSecret: secret, AccessMin: accessMin, RefreshDays: refreshDays}
+func NewService(db *gorm.DB, secret string, accessMin, refreshDays int) *Service {
+	return &Service{DB: db, JWTSecret: secret, AccessMin: accessMin, RefreshDays: refreshDays}
 }
 
 func (s *Service) findByEmail(ctx context.Context, email string) (*User, error) {
-	var u User
-	var role string
-	err := s.Pool.QueryRow(ctx, `
-		SELECT u.id, u.nama, u.email, u.password, u.nomor_hp, u.jabatan, u.role_id,
-		       r.nama, u.status, u.last_login, u.created_at, u.updated_at
-		FROM users u
-		JOIN roles r ON r.id = u.role_id
-		WHERE u.email = $1`,
-		email,
-	).Scan(&u.ID, &u.Nama, &u.Email, &u.Password, &u.NomorHP, &u.Jabatan, &u.RoleID,
-		&role, &u.Status, &u.LastLogin, &u.CreatedAt, &u.UpdatedAt)
+	var dbUser database.User
+	err := s.DB.WithContext(ctx).
+		Where("email = ?", email).
+		First(&dbUser).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
 		return nil, err
 	}
-	u.Role = role
+
+	var u User
+	u.ID = dbUser.ID
+	u.Nama = dbUser.Nama
+	u.Email = dbUser.Email
+	u.Password = dbUser.Password
+	u.NomorHP = dbUser.NomorHP
+	u.Jabatan = dbUser.Jabatan
+	u.RoleID = dbUser.RoleID
+	u.Status = dbUser.Status
+	u.LastLogin = dbUser.LastLogin
+	u.CreatedAt = dbUser.CreatedAt
+	u.UpdatedAt = dbUser.UpdatedAt
+
+	var roleName string
+	s.DB.WithContext(ctx).Table("roles").Select("nama").Where("id = ?", dbUser.RoleID).Scan(&roleName)
+	u.Role = roleName
+
 	return &u, nil
 }
 
 func (s *Service) loadPermissions(ctx context.Context, roleID string) ([]string, error) {
-	rows, err := s.Pool.Query(ctx, `
-		SELECT p.modul || ':' || p.aksi
-		FROM role_permissions rp
-		JOIN permissions p ON p.id = rp.permission_id
-		WHERE rp.role_id = $1`,
-		roleID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	perms := []string{}
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			return nil, err
-		}
-		perms = append(perms, p)
-	}
-	return perms, rows.Err()
+	var perms []string
+	err := s.DB.WithContext(ctx).
+		Table("role_permissions rp").
+		Joins("JOIN permissions p ON p.id = rp.permission_id").
+		Where("rp.role_id = ?", roleID).
+		Select("p.modul || ':' || p.aksi").
+		Pluck("p.modul || ':' || p.aksi", &perms).Error
+	return perms, err
 }
 
 func (s *Service) generateTokens(u *User) (access, refresh string, err error) {
@@ -115,10 +116,12 @@ func (s *Service) generateTokens(u *User) (access, refresh string, err error) {
 
 func (s *Service) storeRefreshToken(ctx context.Context, userID, refreshToken string) error {
 	expiresAt := time.Now().Add(time.Duration(s.RefreshDays) * 24 * time.Hour)
-	_, err := s.Pool.Exec(ctx,
-		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
-		userID, helper.HashToken(refreshToken), expiresAt)
-	return err
+	token := database.RefreshToken{
+		UserID:    userID,
+		TokenHash: helper.HashToken(refreshToken),
+		ExpiresAt: expiresAt,
+	}
+	return s.DB.WithContext(ctx).Create(&token).Error
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
@@ -139,7 +142,10 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 	}
 
 	now := time.Now()
-	s.Pool.Exec(ctx, `UPDATE users SET last_login = $1, updated_at = $1 WHERE id = $2`, now, u.ID)
+	s.DB.WithContext(ctx).Model(&database.User{}).Where("id = ?", u.ID).Updates(map[string]interface{}{
+		"last_login": now,
+		"updated_at": now,
+	})
 	if err := s.storeRefreshToken(ctx, u.ID, refresh); err != nil {
 		return nil, err
 	}
@@ -162,46 +168,53 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginRespo
 	}
 
 	hash := helper.HashToken(refreshToken)
-	var revokedAt *time.Time
-	err = s.Pool.QueryRow(ctx,
-		`SELECT revoked_at FROM refresh_tokens WHERE user_id = $1 AND token_hash = $2`,
-		claims.UserID, hash).Scan(&revokedAt)
-	if err != nil || revokedAt != nil {
-		return nil, ErrInvalidRefresh
-	}
-
-	var u User
-	err = s.Pool.QueryRow(ctx, `
-		SELECT u.id, u.nama, u.email, u.password, u.nomor_hp, u.jabatan, u.role_id,
-		       r.nama, u.status, u.last_login, u.created_at, u.updated_at
-		FROM users u
-		JOIN roles r ON r.id = u.role_id
-		WHERE u.id = $1`,
-		claims.UserID,
-	).Scan(&u.ID, &u.Nama, &u.Email, &u.Password, &u.NomorHP, &u.Jabatan, &u.RoleID,
-		&u.Role, &u.Status, &u.LastLogin, &u.CreatedAt, &u.UpdatedAt)
+	var rt database.RefreshToken
+	err = s.DB.WithContext(ctx).
+		Where("user_id = ? AND token_hash = ? AND revoked_at IS NULL", claims.UserID, hash).
+		First(&rt).Error
 	if err != nil {
 		return nil, ErrInvalidRefresh
 	}
-	if !u.Status {
+
+	var dbUser database.User
+	err = s.DB.WithContext(ctx).Where("id = ?", claims.UserID).First(&dbUser).Error
+	if err != nil {
+		return nil, ErrInvalidRefresh
+	}
+	if !dbUser.Status {
 		return nil, ErrInactiveAccount
 	}
+
+	var u User
+	u.ID = dbUser.ID
+	u.Nama = dbUser.Nama
+	u.Email = dbUser.Email
+	u.Password = dbUser.Password
+	u.NomorHP = dbUser.NomorHP
+	u.Jabatan = dbUser.Jabatan
+	u.RoleID = dbUser.RoleID
+	u.Status = dbUser.Status
+	u.LastLogin = dbUser.LastLogin
+	u.CreatedAt = dbUser.CreatedAt
+	u.UpdatedAt = dbUser.UpdatedAt
+	var roleName string
+	s.DB.WithContext(ctx).Table("roles").Select("nama").Where("id = ?", dbUser.RoleID).Scan(&roleName)
+	u.Role = roleName
 
 	access, newRefresh, err := s.generateTokens(&u)
 	if err != nil {
 		return nil, err
 	}
-	s.Pool.Exec(ctx,
-		`UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND token_hash = $2`,
-		claims.UserID, hash)
+	s.DB.WithContext(ctx).Model(&database.RefreshToken{}).
+		Where("user_id = ? AND token_hash = ?", claims.UserID, hash).
+		Update("revoked_at", time.Now())
 	s.storeRefreshToken(ctx, u.ID, newRefresh)
 
 	return &LoginResponse{Token: access, RefreshToken: newRefresh, User: u}, nil
 }
 
 func (s *Service) Logout(ctx context.Context, userID, refreshToken string) error {
-	_, err := s.Pool.Exec(ctx,
-		`UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND token_hash = $2`,
-		userID, helper.HashToken(refreshToken))
-	return err
+	return s.DB.WithContext(ctx).Model(&database.RefreshToken{}).
+		Where("user_id = ? AND token_hash = ?", userID, helper.HashToken(refreshToken)).
+		Update("revoked_at", time.Now()).Error
 }

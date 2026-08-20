@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
 	"rt26/backend/internal/config"
 	"rt26/backend/internal/middleware"
@@ -14,16 +14,16 @@ import (
 	"rt26/backend/internal/pkg/response"
 )
 
-func New(pool *pgxpool.Pool, cfg *config.Config) http.Handler {
+func New(db *gorm.DB, cfg *config.Config) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.CORS)
 	r.Use(recoverer)
 
-	authService := auth.NewService(pool, cfg.JWTSecret, cfg.AccessMinutes, cfg.RefreshDays)
+	authService := auth.NewService(db, cfg.JWTSecret, cfg.AccessMinutes, cfg.RefreshDays)
 	authHandler := auth.NewHandler(authService)
-	dashboardHandler := dashboard.NewHandler(pool)
-	masterdataHandler := masterdata.NewHandler(pool)
+	dashboardHandler := dashboard.NewHandler(db)
+	masterdataHandler := masterdata.NewHandler(db)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {

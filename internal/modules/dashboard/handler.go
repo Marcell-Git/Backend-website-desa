@@ -2,29 +2,31 @@ package dashboard
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
+	"rt26/backend/internal/database"
 	"rt26/backend/internal/pkg/response"
 )
 
 type Handler struct {
-	Pool *pgxpool.Pool
+	DB *gorm.DB
 }
 
-func NewHandler(pool *pgxpool.Pool) *Handler {
-	return &Handler{Pool: pool}
+func NewHandler(db *gorm.DB) *Handler {
+	return &Handler{DB: db}
 }
 
 type Summary struct {
-	TotalKK              int64    `json:"total_kk"`
-	TotalPenduduk        int64    `json:"total_penduduk"`
-	SaldoKas             float64  `json:"saldo_kas"`
-	PengeluaranBulanIni  float64  `json:"pengeluaran_bulan_ini"`
-	PengaduanBaru        int64    `json:"pengaduan_baru"`
-	PengaduanDiproses    int64    `json:"pengaduan_diproses"`
-	PengumumanAktif      int64    `json:"pengumuman_aktif"`
-	AktivitasTerbaru     []Aktivitas `json:"aktivitas_terbaru"`
+	TotalKK             int64      `json:"total_kk"`
+	TotalPenduduk       int64      `json:"total_penduduk"`
+	SaldoKas            float64    `json:"saldo_kas"`
+	PengeluaranBulanIni float64    `json:"pengeluaran_bulan_ini"`
+	PengaduanBaru       int64      `json:"pengaduan_baru"`
+	PengaduanDiproses   int64      `json:"pengaduan_diproses"`
+	PengumumanAktif     int64      `json:"pengumuman_aktif"`
+	AktivitasTerbaru    []Aktivitas `json:"aktivitas_terbaru"`
 }
 
 type Aktivitas struct {
@@ -39,35 +41,38 @@ type Aktivitas struct {
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	var s Summary
 
-	h.Pool.QueryRow(r.Context(), `
-		SELECT COUNT(*) FROM kartu_keluarga WHERE deleted_at IS NULL`).Scan(&s.TotalKK)
-	h.Pool.QueryRow(r.Context(), `
-		SELECT COUNT(*) FROM anggota_keluarga WHERE deleted_at IS NULL`).Scan(&s.TotalPenduduk)
+	h.DB.WithContext(r.Context()).Model(&database.KartuKeluarga{}).
+		Where("deleted_at IS NULL").Count(&s.TotalKK)
+	h.DB.WithContext(r.Context()).Model(&database.AnggotaKeluarga{}).
+		Where("deleted_at IS NULL").Count(&s.TotalPenduduk)
 
-	rows, err := h.Pool.Query(r.Context(), `
-		SELECT al.id, al.modul, al.aktivitas, COALESCE(al.deskripsi, ''),
-		       COALESCE(u.nama, 'Sistem'), to_char(al.created_at, 'DD-MM-YYYY HH24:MI:SS')
-		FROM audit_logs al
-		LEFT JOIN users u ON u.id = al.user_id
-		ORDER BY al.created_at DESC
-		LIMIT 10`)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
+	type auditRow struct {
+		ID        string
+		Modul     string
+		Aktivitas string
+		Deskripsi string
+		Nama      string
+		Waktu     time.Time
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var a Aktivitas
-		if err := rows.Scan(&a.ID, &a.Modul, &a.Aktivitas, &a.Deskripsi, &a.Nama, &a.Waktu); err != nil {
-			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-			return
-		}
-		s.AktivitasTerbaru = append(s.AktivitasTerbaru, a)
-	}
-	if rows.Err() != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
+	var rows []auditRow
+	h.DB.WithContext(r.Context()).
+		Table("audit_logs al").
+		Select("al.id, al.modul, al.aktivitas, COALESCE(al.deskripsi, '') as deskripsi, COALESCE(u.nama, 'Sistem') as nama, al.created_at as waktu").
+		Joins("LEFT JOIN users u ON u.id = al.user_id").
+		Order("al.created_at DESC").
+		Limit(10).
+		Scan(&rows)
+
+	for _, row := range rows {
+		s.AktivitasTerbaru = append(s.AktivitasTerbaru, Aktivitas{
+			ID:        row.ID,
+			Modul:     row.Modul,
+			Aktivitas: row.Aktivitas,
+			Deskripsi: row.Deskripsi,
+			Nama:      row.Nama,
+			Waktu:     row.Waktu.Format("02-01-2006 15:04:05"),
+		})
 	}
 
 	response.Success(w, http.StatusOK, "Ringkasan dashboard", s)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -23,23 +22,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	db, err := database.Connect(ctx, cfg.DatabaseURL())
+	db, err := database.Connect(cfg.DatabaseURL())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	if err := db.RunMigrations(ctx); err != nil {
+	if err := db.RunMigrations(); err != nil {
 		log.Fatal(err)
 	}
-	if err := db.Seed(ctx); err != nil {
+	if err := db.Seed(); err != nil {
 		log.Fatal(err)
 	}
 
-	handler := router.New(db.Pool, cfg)
+	handler := router.New(db.DB, cfg)
 
 	addr := ":" + cfg.AppPort
 	fmt.Fprintf(os.Stdout, "Sistem Informasi RT Tegalyoso 26 — backend berjalan di http://localhost%s\n", addr)

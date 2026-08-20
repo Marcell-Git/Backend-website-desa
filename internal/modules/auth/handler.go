@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"rt26/backend/internal/database"
 	"rt26/backend/internal/middleware"
 	"rt26/backend/internal/pkg/helper"
@@ -50,7 +52,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		if uid == "" {
 			userID = nil
 		}
-		database.RecordAudit(r.Context(), h.Service.Pool, userID, "Authentication", "Gagal Login", "Percobaan login gagal untuk "+req.Email, nil, nil)
+		database.RecordAudit(r.Context(), h.Service.DB, userID, "Authentication", "Gagal Login", "Percobaan login gagal untuk "+req.Email, nil, nil)
 
 		switch {
 		case errors.Is(err, ErrInactiveAccount):
@@ -64,7 +66,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uid := result.User.ID
-	database.RecordAudit(r.Context(), h.Service.Pool, &uid, "Authentication", "Login", "Login berhasil sebagai "+result.User.Role, nil, nil)
+	database.RecordAudit(r.Context(), h.Service.DB, &uid, "Authentication", "Login", "Login berhasil sebagai "+result.User.Role, nil, nil)
 	response.Success(w, http.StatusOK, "Login berhasil", result)
 }
 
@@ -88,25 +90,40 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		h.Service.Logout(r.Context(), middleware.GetUserID(r), req.RefreshToken)
 	}
 	uid := middleware.GetUserID(r)
-	database.RecordAudit(r.Context(), h.Service.Pool, &uid, "Authentication", "Logout", "Pengguna keluar dari sistem", nil, nil)
+	database.RecordAudit(r.Context(), h.Service.DB, &uid, "Authentication", "Logout", "Pengguna keluar dari sistem", nil, nil)
 	response.Success(w, http.StatusOK, "Logout berhasil", nil)
 }
 
 func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
-	var u User
-	err := h.Service.Pool.QueryRow(r.Context(), `
-		SELECT u.id, u.nama, u.email, u.nomor_hp, u.jabatan, u.role_id, r.nama,
-		       u.status, u.last_login, u.created_at, u.updated_at
-		FROM users u
-		JOIN roles r ON r.id = u.role_id
-		WHERE u.id = $1`,
-		middleware.GetUserID(r),
-	).Scan(&u.ID, &u.Nama, &u.Email, &u.NomorHP, &u.Jabatan, &u.RoleID, &u.Role,
-		&u.Status, &u.LastLogin, &u.CreatedAt, &u.UpdatedAt)
+	var dbUser database.User
+	err := h.Service.DB.WithContext(r.Context()).
+		Where("id = ?", middleware.GetUserID(r)).
+		First(&dbUser).Error
 	if err != nil {
-		response.Error(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
+
+	var u User
+	u.ID = dbUser.ID
+	u.Nama = dbUser.Nama
+	u.Email = dbUser.Email
+	u.NomorHP = dbUser.NomorHP
+	u.Jabatan = dbUser.Jabatan
+	u.RoleID = dbUser.RoleID
+	u.Status = dbUser.Status
+	u.LastLogin = dbUser.LastLogin
+	u.CreatedAt = dbUser.CreatedAt
+	u.UpdatedAt = dbUser.UpdatedAt
+
+	var roleName string
+	h.Service.DB.WithContext(r.Context()).Table("roles").Select("nama").Where("id = ?", dbUser.RoleID).Scan(&roleName)
+	u.Role = roleName
+
 	perms, _ := h.Service.loadPermissions(r.Context(), u.RoleID)
 	u.Permission = perms
 
@@ -136,8 +153,8 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var hashed string
-	err := h.Service.Pool.QueryRow(r.Context(),
-		`SELECT password FROM users WHERE id = $1`, middleware.GetUserID(r)).Scan(&hashed)
+	err := h.Service.DB.WithContext(r.Context()).
+		Table("users").Select("password").Where("id = ?", middleware.GetUserID(r)).Scan(&hashed).Error
 	if err != nil {
 		response.Error(w, http.StatusNotFound, "Pengguna tidak ditemukan")
 		return
@@ -152,14 +169,15 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	_, err = h.Service.Pool.Exec(r.Context(),
-		`UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`, newHash, middleware.GetUserID(r))
+	err = h.Service.DB.WithContext(r.Context()).Model(&database.User{}).
+		Where("id = ?", middleware.GetUserID(r)).
+		Update("password", newHash).Error
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	uid := middleware.GetUserID(r)
-	database.RecordAudit(r.Context(), h.Service.Pool, &uid, "Authentication", "Perubahan Password", "Pengguna mengubah password sendiri", nil, nil)
+	database.RecordAudit(r.Context(), h.Service.DB, &uid, "Authentication", "Perubahan Password", "Pengguna mengubah password sendiri", nil, nil)
 	response.Success(w, http.StatusOK, "Password berhasil diperbarui", nil)
 }

@@ -3,13 +3,11 @@ package masterdata
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 
 	"rt26/backend/internal/database"
 	"rt26/backend/internal/middleware"
@@ -18,11 +16,11 @@ import (
 )
 
 type Handler struct {
-	Pool *pgxpool.Pool
+	DB *gorm.DB
 }
 
-func NewHandler(pool *pgxpool.Pool) *Handler {
-	return &Handler{Pool: pool}
+func NewHandler(db *gorm.DB) *Handler {
+	return &Handler{DB: db}
 }
 
 func validNIK(nik string) bool {
@@ -60,86 +58,67 @@ func notFound(w http.ResponseWriter, msg string) {
 	response.Error(w, http.StatusNotFound, msg)
 }
 
-// ---------------- Kartu Keluarga ----------------
-
 func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 	pg := helper.ParsePagination(r, 10)
 	search := helper.CleanSearch(r.URL.Query().Get("search"))
-	rt := r.URL.Query().Get("rt")
-	rw := r.URL.Query().Get("rw")
+	rtFilter := r.URL.Query().Get("rt")
+	rwFilter := r.URL.Query().Get("rw")
 
-	where := []string{"kk.deleted_at IS NULL"}
-	args := []interface{}{}
+	type kkRow struct {
+		database.KartuKeluarga
+		NamaKepala    *string `json:"nama_kepala_keluarga"`
+		JumlahAnggota int64   `json:"jumlah_anggota"`
+	}
+
+	query := h.DB.WithContext(r.Context()).
+		Table("kartu_keluarga kk").
+		Select("kk.*, a.nama_lengkap as nama_kepala, (SELECT COUNT(*) FROM anggota_keluarga ag WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) as jumlah_anggota").
+		Joins("LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id AND a.deleted_at IS NULL").
+		Where("kk.deleted_at IS NULL")
 
 	if search != "" {
-		args = append(args, "%"+search+"%")
-		where = append(where, fmt.Sprintf(`(kk.nomor_kk ILIKE $%d OR a.nama_lengkap ILIKE $%d OR kk.alamat ILIKE $%d)`, len(args), len(args), len(args)))
+		like := "%" + search + "%"
+		query = query.Where("(kk.nomor_kk ILIKE ? OR a.nama_lengkap ILIKE ? OR kk.alamat ILIKE ?)", like, like, like)
 	}
-	if rt != "" {
-		args = append(args, rt)
-		where = append(where, fmt.Sprintf("kk.rt = $%d", len(args)))
+	if rtFilter != "" {
+		query = query.Where("kk.rt = ?", rtFilter)
 	}
-	if rw != "" {
-		args = append(args, rw)
-		where = append(where, fmt.Sprintf("kk.rw = $%d", len(args)))
+	if rwFilter != "" {
+		query = query.Where("kk.rw = ?", rwFilter)
 	}
-
-	whereSQL := strings.Join(where, " AND ")
 
 	var total int64
-	err := h.Pool.QueryRow(r.Context(), fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM kartu_keluarga kk
-		LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id
-		WHERE %s`, whereSQL), args...).Scan(&total)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
+	countQuery := h.DB.WithContext(r.Context()).
+		Table("kartu_keluarga kk").
+		Joins("LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id AND a.deleted_at IS NULL").
+		Where("kk.deleted_at IS NULL")
+	if search != "" {
+		like := "%" + search + "%"
+		countQuery = countQuery.Where("(kk.nomor_kk ILIKE ? OR a.nama_lengkap ILIKE ? OR kk.alamat ILIKE ?)", like, like, like)
 	}
+	if rtFilter != "" {
+		countQuery = countQuery.Where("kk.rt = ?", rtFilter)
+	}
+	if rwFilter != "" {
+		countQuery = countQuery.Where("kk.rw = ?", rwFilter)
+	}
+	countQuery.Count(&total)
 
-	orderBy := "a.nama_lengkap ASC"
 	switch pg.Sort {
 	case "created_at":
-		orderBy = "kk.created_at ASC"
+		query = query.Order("kk.created_at ASC")
 	case "-created_at":
-		orderBy = "kk.created_at DESC"
+		query = query.Order("kk.created_at DESC")
 	case "jumlah_anggota":
-		orderBy = "jumlah_anggota ASC"
+		query = query.Order("jumlah_anggota ASC")
 	case "-jumlah_anggota":
-		orderBy = "jumlah_anggota DESC"
+		query = query.Order("jumlah_anggota DESC")
+	default:
+		query = query.Order("a.nama_lengkap ASC")
 	}
 
-	args = append(args, pg.Limit, pg.Offset())
-	rows, err := h.Pool.Query(r.Context(), fmt.Sprintf(`
-		SELECT kk.id, kk.nomor_kk, kk.nomor_hp, kk.alamat, kk.rt, kk.rw, kk.desa,
-		       kk.kecamatan, kk.kabupaten, kk.provinsi, kk.kepala_keluarga_id,
-		       a.nama_lengkap,
-		       (SELECT COUNT(*) FROM anggota_keluarga ag
-		         WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) AS jumlah_anggota,
-		       kk.created_at, kk.updated_at
-		FROM kartu_keluarga kk
-		LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id
-		WHERE %s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d`, whereSQL, orderBy, len(args)-1, len(args)), args...)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-	defer rows.Close()
-
-	list := []KartuKeluarga{}
-	for rows.Next() {
-		var kk KartuKeluarga
-		if err := rows.Scan(&kk.ID, &kk.NomorKK, &kk.NomorHP, &kk.Alamat, &kk.RT, &kk.RW, &kk.Desa,
-			&kk.Kecamatan, &kk.Kabupaten, &kk.Provinsi, &kk.KepalaKeluargaID,
-			&kk.NamaKepala, &kk.JumlahAnggota, &kk.CreatedAt, &kk.UpdatedAt); err != nil {
-			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-			return
-		}
-		list = append(list, kk)
-	}
-	if rows.Err() != nil {
+	var list []kkRow
+	if err := query.Offset(pg.Offset()).Limit(pg.Limit).Scan(&list).Error; err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
@@ -154,70 +133,50 @@ func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetKK(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	var kk KartuKeluarga
-	var tanggalLahir *time.Time
-	err := h.Pool.QueryRow(r.Context(), `
-		SELECT kk.id, kk.nomor_kk, kk.nomor_hp, kk.alamat, kk.rt, kk.rw, kk.desa,
-		       kk.kecamatan, kk.kabupaten, kk.provinsi, kk.kepala_keluarga_id,
-		       a.nama_lengkap, a.nik, a.tempat_lahir, a.tanggal_lahir,
-		       (SELECT COUNT(*) FROM anggota_keluarga ag
-		         WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) AS jumlah_anggota,
-		       kk.created_at, kk.updated_at
-		FROM kartu_keluarga kk
-		LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id
-		WHERE kk.id = $1 AND kk.deleted_at IS NULL`, id,
-	).Scan(&kk.ID, &kk.NomorKK, &kk.NomorHP, &kk.Alamat, &kk.RT, &kk.RW, &kk.Desa,
-		&kk.Kecamatan, &kk.Kabupaten, &kk.Provinsi, &kk.KepalaKeluargaID,
-		&kk.NamaKepala, &kk.NIKKepala, &kk.TempatLahirKepala, &tanggalLahir,
-		&kk.JumlahAnggota, &kk.CreatedAt, &kk.UpdatedAt)
+
+	type kkDetail struct {
+		database.KartuKeluarga
+		NamaKepala         *string `json:"nama_kepala_keluarga"`
+		NIKKepala          *string `json:"nik_kepala_keluarga"`
+		TempatLahirKepala  *string `json:"tempat_lahir_kepala"`
+		TanggalLahirKepala *string `json:"tanggal_lahir_kepala"`
+		JumlahAnggota      int64   `json:"jumlah_anggota"`
+	}
+
+	var kk kkDetail
+	err := h.DB.WithContext(r.Context()).
+		Table("kartu_keluarga kk").
+		Select("kk.*, a.nama_lengkap, a.nik, a.tempat_lahir, a.tanggal_lahir, (SELECT COUNT(*) FROM anggota_keluarga ag WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) as jumlah_anggota").
+		Joins("LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id AND a.deleted_at IS NULL").
+		Where("kk.id = ? AND kk.deleted_at IS NULL", id).
+		Scan(&kk).Error
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			notFound(w, "Kartu Keluarga tidak ditemukan")
 			return
 		}
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	if tanggalLahir != nil {
-		kk.TanggalLahirKepala = tanggalLahir.Format("2006-01-02")
-	}
-
-	rows, err := h.Pool.Query(r.Context(), `
-		SELECT id, nik, nama_lengkap, tempat_lahir, to_char(tanggal_lahir, 'YYYY-MM-DD'),
-		       jenis_kelamin, agama, COALESCE(pekerjaan, ''), COALESCE(nomor_hp, ''),
-		       hubungan_keluarga, status, created_at, updated_at
-		FROM anggota_keluarga
-		WHERE kartu_keluarga_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at ASC`, id)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
+	if kk.ID == "" {
+		notFound(w, "Kartu Keluarga tidak ditemukan")
 		return
 	}
-	defer rows.Close()
 
-	anggota := []Anggota{}
-	for rows.Next() {
-		var a Anggota
-		var pekerjaan, nomorHP string
-		if err := rows.Scan(&a.ID, &a.NIK, &a.NamaLengkap, &a.TempatLahir, &a.TanggalLahir,
-			&a.JenisKelamin, &a.Agama, &pekerjaan, &nomorHP, &a.HubunganKeluarga,
-			&a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
-			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-			return
-		}
-		if pekerjaan != "" {
-			a.Pekerjaan = &pekerjaan
-		}
-		if nomorHP != "" {
-			a.NomorHP = &nomorHP
-		}
-		a.KartuKeluargaID = id
-		anggota = append(anggota, a)
+	var anggotaList []Anggota
+	h.DB.WithContext(r.Context()).
+		Table("anggota_keluarga").
+		Where("kartu_keluarga_id = ? AND deleted_at IS NULL", id).
+		Order("created_at ASC").
+		Scan(&anggotaList)
+
+	for i := range anggotaList {
+		anggotaList[i].KartuKeluargaID = id
 	}
 
 	detail := map[string]interface{}{
 		"kartu_keluarga": kk,
-		"anggota":        anggota,
+		"anggota":        anggotaList,
 	}
 	response.Success(w, http.StatusOK, "Detail Kartu Keluarga", detail)
 }
@@ -265,23 +224,38 @@ func (h *Handler) CreateKK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := h.Pool.Begin(r.Context())
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-	defer tx.Rollback(r.Context())
-
 	var kkID string
-	err = tx.QueryRow(r.Context(), `
-		INSERT INTO kartu_keluarga (nomor_kk, nomor_hp, alamat, rt, rw, desa, kecamatan, kabupaten, provinsi)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id`,
-		req.NomorKK, req.NomorHP, req.Alamat, req.RT, req.RW, req.Desa,
-		req.Kecamatan, req.Kabupaten, req.Provinsi,
-	).Scan(&kkID)
+	err := h.DB.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		kk := database.KartuKeluarga{
+			NomorKK:   req.NomorKK,
+			NomorHP:   req.NomorHP,
+			Alamat:    req.Alamat,
+			RT:        req.RT,
+			RW:        req.RW,
+			Desa:      req.Desa,
+			Kecamatan: req.Kecamatan,
+			Kabupaten: req.Kabupaten,
+			Provinsi:  req.Provinsi,
+		}
+		if err := tx.Create(&kk).Error; err != nil {
+			return err
+		}
+		kkID = kk.ID
+
+		if req.Kepala != nil {
+			memberID, err := insertAnggota(tx, kkID, *req.Kepala, "Kepala Keluarga")
+			if err != nil {
+				return err
+			}
+			tx.Model(&database.KartuKeluarga{}).Where("id = ?", kkID).Updates(map[string]interface{}{
+				"kepala_keluarga_id": memberID,
+				"updated_at":         time.Now(),
+			})
+		}
+		return nil
+	})
 	if err != nil {
-		if helper.IsDuplicateError(err) {
+		if helper.IsDuplicateErrorGORM(err) {
 			response.ValidationError(w, map[string][]string{"nomor_kk": {"Nomor KK telah terdaftar"}})
 			return
 		}
@@ -289,31 +263,7 @@ func (h *Handler) CreateKK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Kepala != nil {
-		memberID, err := insertAnggota(r.Context(), tx, kkID, *req.Kepala, "Kepala Keluarga")
-		if err != nil {
-			if helper.IsDuplicateError(err) {
-				response.ValidationError(w, map[string][]string{"nik": {"NIK telah terdaftar"}})
-				return
-			}
-			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-			return
-		}
-		_, err = tx.Exec(r.Context(),
-			`UPDATE kartu_keluarga SET kepala_keluarga_id = $1, updated_at = NOW() WHERE id = $2`,
-			memberID, kkID)
-		if err != nil {
-			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-			return
-		}
-	}
-
-	if err := tx.Commit(r.Context()); err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-
-	database.RecordAudit(r.Context(), h.Pool, userIDPtr(r), "Master Data", "Tambah KK",
+	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "Master Data", "Tambah KK",
 		"Menambahkan KK nomor "+req.NomorKK, nil, req)
 	response.Created(w, "Kartu Keluarga berhasil ditambahkan", map[string]string{"id": kkID})
 }
@@ -335,21 +285,29 @@ func (h *Handler) UpdateKK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ct, err := h.Pool.Exec(r.Context(), `
-		UPDATE kartu_keluarga SET nomor_hp = $1, alamat = $2, rt = $3, rw = $4,
-		       desa = $5, kecamatan = $6, kabupaten = $7, provinsi = $8, updated_at = NOW()
-		WHERE id = $9 AND deleted_at IS NULL`,
-		req.NomorHP, req.Alamat, req.RT, req.RW, req.Desa, req.Kecamatan, req.Kabupaten, req.Provinsi, id)
-	if err != nil {
+	result := h.DB.WithContext(r.Context()).Model(&database.KartuKeluarga{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(map[string]interface{}{
+			"nomor_hp":   req.NomorHP,
+			"alamat":     req.Alamat,
+			"rt":         req.RT,
+			"rw":         req.RW,
+			"desa":       req.Desa,
+			"kecamatan":  req.Kecamatan,
+			"kabupaten":  req.Kabupaten,
+			"provinsi":   req.Provinsi,
+			"updated_at": time.Now(),
+		})
+	if result.Error != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	if ct.RowsAffected() == 0 {
+	if result.RowsAffected == 0 {
 		notFound(w, "Kartu Keluarga tidak ditemukan")
 		return
 	}
 
-	database.RecordAudit(r.Context(), h.Pool, userIDPtr(r), "Master Data", "Ubah KK",
+	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "Master Data", "Ubah KK",
 		"Memperbarui data KK", nil, req)
 	response.Success(w, http.StatusOK, "Kartu Keluarga berhasil diperbarui", nil)
 }
@@ -357,30 +315,27 @@ func (h *Handler) UpdateKK(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeleteKK(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	var jumlah int
-	err := h.Pool.QueryRow(r.Context(),
-		`SELECT COUNT(*) FROM anggota_keluarga WHERE kartu_keluarga_id = $1 AND deleted_at IS NULL`, id).Scan(&jumlah)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
+	var jumlah int64
+	h.DB.WithContext(r.Context()).Model(&database.AnggotaKeluarga{}).
+		Where("kartu_keluarga_id = ? AND deleted_at IS NULL", id).Count(&jumlah)
 	if jumlah > 0 {
 		response.Error(w, http.StatusConflict, "KK tidak dapat dihapus karena masih memiliki anggota keluarga")
 		return
 	}
 
-	ct, err := h.Pool.Exec(r.Context(),
-		`UPDATE kartu_keluarga SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
-	if err != nil {
+	result := h.DB.WithContext(r.Context()).Model(&database.KartuKeluarga{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Update("deleted_at", time.Now())
+	if result.Error != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	if ct.RowsAffected() == 0 {
+	if result.RowsAffected == 0 {
 		notFound(w, "Kartu Keluarga tidak ditemukan")
 		return
 	}
 
-	database.RecordAudit(r.Context(), h.Pool, userIDPtr(r), "Master Data", "Hapus KK",
+	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "Master Data", "Hapus KK",
 		"Menghapus (soft) Kartu Keluarga", nil, map[string]string{"id": id})
 	response.Success(w, http.StatusOK, "Kartu Keluarga berhasil dihapus", nil)
 }

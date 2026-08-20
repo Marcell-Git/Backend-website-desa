@@ -1,10 +1,11 @@
 package database
 
 import (
-	"context"
 	"fmt"
 
 	"rt26/backend/internal/pkg/helper"
+
+	"gorm.io/gorm/clause"
 )
 
 type permissionDef struct {
@@ -80,36 +81,35 @@ var allPermissions = []permissionDef{
 	{"audit-log", "export", "Export Audit Log"},
 }
 
-func (d *Database) Seed(ctx context.Context) error {
+func (d *Database) Seed() error {
+	db := d.DB
+
 	permIDs := map[string]string{}
 
 	for _, p := range allPermissions {
-		var id string
-		err := d.Pool.QueryRow(ctx, `
-			INSERT INTO permissions (nama, modul, aksi) VALUES ($1, $2, $3)
-			ON CONFLICT (modul, aksi) DO UPDATE SET nama = EXCLUDED.nama
-			RETURNING id`, p.nama, p.modul, p.aksi).Scan(&id)
-		if err != nil {
-			return err
+		perm := Permission{Nama: p.nama, Modul: p.modul, Aksi: p.aksi}
+		result := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "modul"}, {Name: "aksi"}},
+			DoUpdates: clause.AssignmentColumns([]string{"nama"}),
+		}).Create(&perm)
+		if result.Error != nil {
+			return result.Error
 		}
-		permIDs[p.modul+":"+p.aksi] = id
+		permIDs[p.modul+":"+p.aksi] = perm.ID
 	}
 
-	superAdminID, err := d.ensureRole(ctx, "Super Admin", "Administrator sistem dengan akses penuh")
+	superAdminID, err := d.ensureRole("Super Admin", "Administrator sistem dengan akses penuh")
 	if err != nil {
 		return err
 	}
-	pengurusID, err := d.ensureRole(ctx, "Pengurus", "Pengurus RT yang mengelola data operasional")
+	pengurusID, err := d.ensureRole("Pengurus", "Pengurus RT yang mengelola data operasional")
 	if err != nil {
 		return err
 	}
 
 	for _, pid := range permIDs {
-		if _, err := d.Pool.Exec(ctx,
-			`INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)
-			 ON CONFLICT DO NOTHING`, superAdminID, pid); err != nil {
-			return err
-		}
+		rp := RolePermission{RoleID: superAdminID, PermissionID: pid}
+		db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rp)
 	}
 
 	pengurusPerms := []string{
@@ -131,11 +131,8 @@ func (d *Database) Seed(ctx context.Context) error {
 		if _, ok := permIDs[key]; !ok {
 			continue
 		}
-		if _, err := d.Pool.Exec(ctx,
-			`INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)
-			 ON CONFLICT DO NOTHING`, pengurusID, permIDs[key]); err != nil {
-			return err
-		}
+		rp := RolePermission{RoleID: pengurusID, PermissionID: permIDs[key]}
+		db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rp)
 	}
 
 	hash, err := helper.HashPassword("admin123")
@@ -143,18 +140,18 @@ func (d *Database) Seed(ctx context.Context) error {
 		return err
 	}
 
-	var exists bool
-	err = d.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`,
-		"admin@email.com").Scan(&exists)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		_, err = d.Pool.Exec(ctx, `
-			INSERT INTO users (nama, email, password, jabatan, role_id, status)
-			VALUES ('Super Admin', 'admin@email.com', $1, 'Administrator', $2, TRUE)`,
-			hash, superAdminID)
-		if err != nil {
+	var count int64
+	db.Model(&User{}).Where("email = ?", "admin@email.com").Count(&count)
+	if count == 0 {
+		admin := User{
+			Nama:     "Super Admin",
+			Email:    "admin@email.com",
+			Password: hash,
+			Jabatan:  strPtr("Administrator"),
+			RoleID:   superAdminID,
+			Status:   true,
+		}
+		if err := db.Create(&admin).Error; err != nil {
 			return err
 		}
 	}
@@ -163,11 +160,18 @@ func (d *Database) Seed(ctx context.Context) error {
 	return nil
 }
 
-func (d *Database) ensureRole(ctx context.Context, nama, deskripsi string) (string, error) {
-	var id string
-	err := d.Pool.QueryRow(ctx, `
-		INSERT INTO roles (nama, deskripsi) VALUES ($1, $2)
-		ON CONFLICT (nama) DO UPDATE SET deskripsi = EXCLUDED.deskripsi
-		RETURNING id`, nama, deskripsi).Scan(&id)
-	return id, err
+func (d *Database) ensureRole(nama, deskripsi string) (string, error) {
+	var role Role
+	result := d.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "nama"}},
+		DoUpdates: clause.AssignmentColumns([]string{"deskripsi"}),
+	}).Assign(Role{Nama: nama, Deskripsi: deskripsi}).FirstOrCreate(&role, Role{Nama: nama})
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return role.ID, nil
+}
+
+func strPtr(s string) *string {
+	return &s
 }

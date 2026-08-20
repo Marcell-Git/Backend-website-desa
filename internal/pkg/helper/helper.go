@@ -3,13 +3,11 @@ package helper
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -71,7 +69,9 @@ func CleanSearch(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func IsDuplicateError(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+func IsDuplicateErrorGORM(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505")
 }

@@ -166,3 +166,17 @@ type RekapPengeluaran struct {
 }
 
 func (RekapPengeluaran) TableName() string { return "rekap_pengeluaran" }
+
+type Pengumuman struct {
+	ID               string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Judul            string         `gorm:"type:varchar(200);not null" json:"judul"`
+	Isi              string         `gorm:"type:text;not null" json:"isi"`
+	TanggalPublikasi time.Time      `gorm:"type:date;not null" json:"tanggal_publikasi"`
+	Status           string         `gorm:"type:varchar(20);not null;default:draft" json:"status"`
+	DibuatOleh       string         `gorm:"type:uuid;not null" json:"dibuat_oleh"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Pengumuman) TableName() string { return "pengumuman" }

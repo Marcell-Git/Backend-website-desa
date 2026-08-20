@@ -64,6 +64,9 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	s.PengeluaranBulanIni = sumColumn(h.DB, "rekap_pengeluaran", "nominal", "tanggal >= ?", startOfMonth)
 
+	h.DB.WithContext(r.Context()).Model(&database.Pengumuman{}).
+		Where("deleted_at IS NULL AND status = 'published'").Count(&s.PengumumanAktif)
+
 	type auditRow struct {
 		ID        string
 		Modul     string

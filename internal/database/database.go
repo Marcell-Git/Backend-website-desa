@@ -47,6 +47,7 @@ func (d *Database) RunMigrations() error {
 		&RekapKas{},
 		&RekapIuran{},
 		&RekapPengeluaran{},
+		&Pengumuman{},
 		&AuditLog{},
 	)
 	if err != nil {

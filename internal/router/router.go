@@ -8,6 +8,7 @@ import (
 
 	"rt26/backend/internal/config"
 	"rt26/backend/internal/middleware"
+	"rt26/backend/internal/modules/announcement"
 	"rt26/backend/internal/modules/auth"
 	"rt26/backend/internal/modules/dashboard"
 	"rt26/backend/internal/modules/finance"
@@ -26,6 +27,7 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 	dashboardHandler := dashboard.NewHandler(db)
 	masterdataHandler := masterdata.NewHandler(db)
 	financeHandler := finance.NewHandler(db)
+	announcementHandler := announcement.NewHandler(db)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +37,7 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 		// public
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.Refresh)
+		r.Get("/public/pengumuman", announcementHandler.ListPublished)
 
 		// protected
 		r.Group(func(r chi.Router) {
@@ -101,6 +104,14 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 				r.With(middleware.RequirePermission("pengeluaran", "view")).Get("/{id}", financeHandler.GetPengeluaran)
 				r.With(middleware.RequirePermission("pengeluaran", "update")).Put("/{id}", financeHandler.UpdatePengeluaran)
 				r.With(middleware.RequirePermission("pengeluaran", "delete")).Delete("/{id}", financeHandler.DeletePengeluaran)
+			})
+
+			r.Route("/pengumuman", func(r chi.Router) {
+				r.With(middleware.RequirePermission("pengumuman", "view")).Get("/", announcementHandler.ListPengumuman)
+				r.With(middleware.RequirePermission("pengumuman", "create")).Post("/", announcementHandler.CreatePengumuman)
+				r.With(middleware.RequirePermission("pengumuman", "view")).Get("/{id}", announcementHandler.GetPengumuman)
+				r.With(middleware.RequirePermission("pengumuman", "update")).Put("/{id}", announcementHandler.UpdatePengumuman)
+				r.With(middleware.RequirePermission("pengumuman", "delete")).Delete("/{id}", announcementHandler.DeletePengumuman)
 			})
 		})
 	})

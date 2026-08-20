@@ -64,11 +64,11 @@ func (h *Handler) ListJenisIuran(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("created_at ASC")
-	case "-created_at":
 		query = query.Order("created_at DESC")
+	case "-created_at":
+		query = query.Order("created_at ASC")
 	default:
-		query = query.Order("nama ASC")
+		query = query.Order("created_at DESC")
 	}
 
 	list := make([]JenisIuran, 0)
@@ -213,11 +213,11 @@ func (h *Handler) ListKategoriPengeluaran(w http.ResponseWriter, r *http.Request
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("created_at ASC")
-	case "-created_at":
 		query = query.Order("created_at DESC")
+	case "-created_at":
+		query = query.Order("created_at ASC")
 	default:
-		query = query.Order("nama ASC")
+		query = query.Order("created_at DESC")
 	}
 
 	list := make([]KategoriPengeluaran, 0)

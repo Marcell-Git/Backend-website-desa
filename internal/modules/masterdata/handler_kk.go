@@ -106,15 +106,15 @@ func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("kk.created_at ASC")
-	case "-created_at":
 		query = query.Order("kk.created_at DESC")
+	case "-created_at":
+		query = query.Order("kk.created_at ASC")
 	case "jumlah_anggota":
-		query = query.Order("jumlah_anggota ASC")
-	case "-jumlah_anggota":
 		query = query.Order("jumlah_anggota DESC")
+	case "-jumlah_anggota":
+		query = query.Order("jumlah_anggota ASC")
 	default:
-		query = query.Order("a.nama_lengkap ASC")
+		query = query.Order("kk.created_at DESC")
 	}
 
 	list := make([]kkRow, 0)

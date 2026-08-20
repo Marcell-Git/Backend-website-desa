@@ -68,13 +68,13 @@ func (h *Handler) ListPengeluaran(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("p.created_at ASC")
-	case "-created_at":
 		query = query.Order("p.created_at DESC")
+	case "-created_at":
+		query = query.Order("p.created_at ASC")
 	case "nominal":
-		query = query.Order("p.nominal ASC")
-	case "-nominal":
 		query = query.Order("p.nominal DESC")
+	case "-nominal":
+		query = query.Order("p.nominal ASC")
 	default:
 		query = query.Order("p.tanggal DESC, p.created_at DESC")
 	}

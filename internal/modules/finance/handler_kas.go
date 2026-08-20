@@ -58,13 +58,13 @@ func (h *Handler) ListKas(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("k.created_at ASC")
-	case "-created_at":
 		query = query.Order("k.created_at DESC")
+	case "-created_at":
+		query = query.Order("k.created_at ASC")
 	case "nominal":
-		query = query.Order("k.nominal ASC")
-	case "-nominal":
 		query = query.Order("k.nominal DESC")
+	case "-nominal":
+		query = query.Order("k.nominal ASC")
 	default:
 		query = query.Order("k.tanggal DESC, k.created_at DESC")
 	}

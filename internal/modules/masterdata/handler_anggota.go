@@ -119,13 +119,13 @@ func (h *Handler) ListAnggota(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("created_at ASC")
-	case "-created_at":
 		query = query.Order("created_at DESC")
+	case "-created_at":
+		query = query.Order("created_at ASC")
 	case "nik":
-		query = query.Order("nik ASC")
+		query = query.Order("nik DESC")
 	default:
-		query = query.Order("nama_lengkap ASC")
+		query = query.Order("created_at DESC")
 	}
 
 	list := make([]Anggota, 0)

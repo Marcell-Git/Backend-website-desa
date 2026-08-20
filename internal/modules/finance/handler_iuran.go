@@ -68,13 +68,13 @@ func (h *Handler) ListIuran(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "created_at":
-		query = query.Order("i.created_at ASC")
-	case "-created_at":
 		query = query.Order("i.created_at DESC")
+	case "-created_at":
+		query = query.Order("i.created_at ASC")
 	case "nominal":
-		query = query.Order("i.nominal ASC")
-	case "-nominal":
 		query = query.Order("i.nominal DESC")
+	case "-nominal":
+		query = query.Order("i.nominal ASC")
 	default:
 		query = query.Order("i.tanggal DESC, i.created_at DESC")
 	}

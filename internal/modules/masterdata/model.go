@@ -64,6 +64,8 @@ type Anggota struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
+func (Anggota) TableName() string { return "anggota_keluarga" }
+
 type CreateAnggotaRequest struct {
 	KartuKeluargaID  string  `json:"kartu_keluarga_id"`
 	NIK              string  `json:"nik"`

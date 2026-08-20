@@ -128,7 +128,7 @@ func (h *Handler) ListAnggota(w http.ResponseWriter, r *http.Request) {
 		query = query.Order("nama_lengkap ASC")
 	}
 
-	var list []Anggota
+	list := make([]Anggota, 0)
 	if err := query.Offset(pg.Offset()).Limit(pg.Limit).Find(&list).Error; err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return

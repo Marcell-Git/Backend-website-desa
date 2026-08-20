@@ -42,6 +42,11 @@ func (d *Database) RunMigrations() error {
 		&RefreshToken{},
 		&KartuKeluarga{},
 		&AnggotaKeluarga{},
+		&JenisIuran{},
+		&KategoriPengeluaran{},
+		&RekapKas{},
+		&RekapIuran{},
+		&RekapPengeluaran{},
 		&AuditLog{},
 	)
 	if err != nil {

@@ -19,13 +19,13 @@ func NewHandler(db *gorm.DB) *Handler {
 }
 
 type Summary struct {
-	TotalKK             int64      `json:"total_kk"`
-	TotalPenduduk       int64      `json:"total_penduduk"`
-	SaldoKas            float64    `json:"saldo_kas"`
-	PengeluaranBulanIni float64    `json:"pengeluaran_bulan_ini"`
-	PengaduanBaru       int64      `json:"pengaduan_baru"`
-	PengaduanDiproses   int64      `json:"pengaduan_diproses"`
-	PengumumanAktif     int64      `json:"pengumuman_aktif"`
+	TotalKK             int64       `json:"total_kk"`
+	TotalPenduduk       int64       `json:"total_penduduk"`
+	SaldoKas            float64     `json:"saldo_kas"`
+	PengeluaranBulanIni float64     `json:"pengeluaran_bulan_ini"`
+	PengaduanBaru       int64       `json:"pengaduan_baru"`
+	PengaduanDiproses   int64       `json:"pengaduan_diproses"`
+	PengumumanAktif     int64       `json:"pengumuman_aktif"`
 	AktivitasTerbaru    []Aktivitas `json:"aktivitas_terbaru"`
 }
 
@@ -38,6 +38,16 @@ type Aktivitas struct {
 	Waktu     string `json:"waktu"`
 }
 
+func sumColumn(db *gorm.DB, table, column string, where string, args ...interface{}) float64 {
+	var result float64
+	query := "SELECT COALESCE(SUM(" + column + "), 0) FROM " + table + " WHERE deleted_at IS NULL"
+	if where != "" {
+		query += " AND " + where
+	}
+	db.Raw(query, args...).Scan(&result)
+	return result
+}
+
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	var s Summary
 
@@ -45,6 +55,14 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 		Where("deleted_at IS NULL").Count(&s.TotalKK)
 	h.DB.WithContext(r.Context()).Model(&database.AnggotaKeluarga{}).
 		Where("deleted_at IS NULL").Count(&s.TotalPenduduk)
+
+	s.SaldoKas = sumColumn(h.DB, "rekap_kas", "nominal", "") +
+		sumColumn(h.DB, "rekap_iuran", "nominal", "") -
+		sumColumn(h.DB, "rekap_pengeluaran", "nominal", "")
+
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	s.PengeluaranBulanIni = sumColumn(h.DB, "rekap_pengeluaran", "nominal", "tanggal >= ?", startOfMonth)
 
 	type auditRow struct {
 		ID        string

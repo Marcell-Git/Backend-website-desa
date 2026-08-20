@@ -117,7 +117,7 @@ func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 		query = query.Order("a.nama_lengkap ASC")
 	}
 
-	var list []kkRow
+	list := make([]kkRow, 0)
 	if err := query.Offset(pg.Offset()).Limit(pg.Limit).Scan(&list).Error; err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return

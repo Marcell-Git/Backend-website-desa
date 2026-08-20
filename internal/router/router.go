@@ -9,11 +9,14 @@ import (
 	"rt26/backend/internal/config"
 	"rt26/backend/internal/middleware"
 	"rt26/backend/internal/modules/announcement"
+	"rt26/backend/internal/modules/auditlog"
 	"rt26/backend/internal/modules/auth"
 	"rt26/backend/internal/modules/dashboard"
 	"rt26/backend/internal/modules/finance"
 	"rt26/backend/internal/modules/masterdata"
 	"rt26/backend/internal/modules/pengaduan"
+	"rt26/backend/internal/modules/report"
+	"rt26/backend/internal/modules/user"
 	"rt26/backend/internal/pkg/response"
 )
 
@@ -30,6 +33,10 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 	financeHandler := finance.NewHandler(db)
 	announcementHandler := announcement.NewHandler(db)
 	pengaduanHandler := pengaduan.NewHandler(db)
+	auditLogHandler := auditlog.NewHandler(db)
+	reportHandler := report.NewHandler(db)
+	exportHandler := report.NewExportHandler(db)
+	userHandler := user.NewHandler(db)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -132,6 +139,38 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 				r.With(middleware.RequirePermission("pengaduan", "update")).Post("/{id}/catatan", pengaduanHandler.AddCatatan)
 				r.With(middleware.RequirePermission("pengaduan", "view")).Get("/{id}/bukti", pengaduanHandler.DownloadBukti)
 				r.With(middleware.RequirePermission("pengaduan", "delete")).Delete("/{id}", pengaduanHandler.DeletePengaduan)
+			})
+
+			r.Route("/audit-logs", func(r chi.Router) {
+				r.With(middleware.RequirePermission("audit-log", "view")).Get("/", auditLogHandler.List)
+				r.With(middleware.RequirePermission("audit-log", "view")).Get("/{id}", auditLogHandler.Get)
+			})
+
+			r.Route("/users", func(r chi.Router) {
+				r.With(middleware.RequirePermission("user", "view")).Get("/", userHandler.ListUsers)
+				r.With(middleware.RequirePermission("user", "create")).Post("/", userHandler.CreateUser)
+				r.With(middleware.RequirePermission("user", "view")).Get("/{id}", userHandler.GetUser)
+				r.With(middleware.RequirePermission("user", "update")).Put("/{id}", userHandler.UpdateUser)
+				r.With(middleware.RequirePermission("user", "update")).Patch("/{id}/status", userHandler.UpdateUserStatus)
+				r.With(middleware.RequirePermission("user", "update")).Patch("/{id}/password", userHandler.ResetPassword)
+			})
+
+			r.With(middleware.RequirePermission("role", "view")).Get("/roles", userHandler.ListRoles)
+
+			r.Route("/reports", func(r chi.Router) {
+				r.With(middleware.RequirePermission("laporan", "view")).Get("/kas", reportHandler.LaporanKas)
+				r.With(middleware.RequirePermission("laporan", "view")).Get("/iuran", reportHandler.LaporanIuran)
+				r.With(middleware.RequirePermission("laporan", "view")).Get("/pengeluaran", reportHandler.LaporanPengeluaran)
+				r.With(middleware.RequirePermission("laporan", "view")).Get("/keuangan", reportHandler.LaporanKeuangan)
+			})
+
+			r.Route("/export", func(r chi.Router) {
+				r.With(middleware.RequirePermission("laporan", "export")).Get("/kas/pdf", exportHandler.ExportKasPDF)
+				r.With(middleware.RequirePermission("laporan", "export")).Get("/kas/excel", exportHandler.ExportKasExcel)
+				r.With(middleware.RequirePermission("laporan", "export")).Get("/iuran/pdf", exportHandler.ExportIuranPDF)
+				r.With(middleware.RequirePermission("laporan", "export")).Get("/iuran/excel", exportHandler.ExportIuranExcel)
+				r.With(middleware.RequirePermission("laporan", "export")).Get("/pengeluaran/pdf", exportHandler.ExportPengeluaranPDF)
+				r.With(middleware.RequirePermission("laporan", "export")).Get("/pengeluaran/excel", exportHandler.ExportPengeluaranExcel)
 			})
 		})
 	})

@@ -35,7 +35,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	handler := router.New(db.DB, cfg)
+	baseDir, _ := os.Getwd()
+	handler := router.New(db.DB, cfg, baseDir)
 
 	addr := ":" + cfg.AppPort
 	fmt.Fprintf(os.Stdout, "Sistem Informasi RT Tegalyoso 26 — backend berjalan di http://localhost%s\n", addr)

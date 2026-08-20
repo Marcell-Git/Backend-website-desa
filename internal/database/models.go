@@ -223,3 +223,26 @@ type PengaduanRiwayat struct {
 }
 
 func (PengaduanRiwayat) TableName() string { return "pengaduan_riwayat" }
+
+type WebsiteSettings struct {
+	ID             string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	NamaWebsite    string    `gorm:"type:varchar(200);default:'SIM RT Tegalyoso 26'" json:"nama_website"`
+	NamaRT         string    `gorm:"type:varchar(100);default:'RT 26'" json:"nama_rt"`
+	Desa           string    `gorm:"type:varchar(100);default:'Tegalyoso'" json:"desa"`
+	Kecamatan      string    `gorm:"type:varchar(100);default:'Klaten Selatan'" json:"kecamatan"`
+	Kabupaten      string    `gorm:"type:varchar(100);default:'Klaten'" json:"kabupaten"`
+	Provinsi       string    `gorm:"type:varchar(100);default:'Jawa Tengah'" json:"provinsi"`
+	Telepon        string    `gorm:"type:varchar(20)" json:"telepon"`
+	Email          string    `gorm:"type:varchar(150)" json:"email"`
+	Alamat         string    `gorm:"type:text" json:"alamat"`
+	LogoPath       string    `gorm:"type:varchar(255)" json:"logo_path"`
+	FaviconPath    string    `gorm:"type:varchar(255)" json:"favicon_path"`
+	Copyright      string    `gorm:"type:varchar(200);default:'© 2026 RT 26 RW 07 Kel. Tegalyoso'" json:"copyright"`
+	ShowPengumuman bool      `gorm:"default:true" json:"show_pengumuman"`
+	ShowLaporan    bool      `gorm:"default:true" json:"show_laporan"`
+	ShowPengaduan  bool      `gorm:"default:true" json:"show_pengaduan"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+func (WebsiteSettings) TableName() string { return "website_settings" }

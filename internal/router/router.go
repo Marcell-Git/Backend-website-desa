@@ -16,15 +16,21 @@ import (
 	"rt26/backend/internal/modules/masterdata"
 	"rt26/backend/internal/modules/pengaduan"
 	"rt26/backend/internal/modules/report"
+	"rt26/backend/internal/modules/settings"
 	"rt26/backend/internal/modules/user"
 	"rt26/backend/internal/pkg/response"
 )
 
-func New(db *gorm.DB, cfg *config.Config) http.Handler {
+func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.CORS)
 	r.Use(recoverer)
+
+	dir := "."
+	if len(baseDir) > 0 && baseDir[0] != "" {
+		dir = baseDir[0]
+	}
 
 	authService := auth.NewService(db, cfg.JWTSecret, cfg.AccessMinutes, cfg.RefreshDays)
 	authHandler := auth.NewHandler(authService)
@@ -37,6 +43,7 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 	reportHandler := report.NewHandler(db)
 	exportHandler := report.NewExportHandler(db)
 	userHandler := user.NewHandler(db)
+	settingsHandler := settings.NewHandler(db, dir)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +55,7 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 		r.Post("/auth/refresh", authHandler.Refresh)
 		r.Get("/public/pengumuman", announcementHandler.ListPublished)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
+		r.Get("/website-settings", settingsHandler.GetSettings)
 
 		// protected
 		r.Group(func(r chi.Router) {
@@ -146,6 +154,12 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 				r.With(middleware.RequirePermission("audit-log", "view")).Get("/{id}", auditLogHandler.Get)
 			})
 
+			r.Route("/website-settings", func(r chi.Router) {
+				r.With(middleware.RequirePermission("website-settings", "update")).Put("/", settingsHandler.UpdateSettings)
+				r.With(middleware.RequirePermission("website-settings", "update")).Post("/logo", settingsHandler.UploadLogo)
+				r.With(middleware.RequirePermission("website-settings", "update")).Post("/favicon", settingsHandler.UploadFavicon)
+			})
+
 			r.Route("/users", func(r chi.Router) {
 				r.With(middleware.RequirePermission("user", "view")).Get("/", userHandler.ListUsers)
 				r.With(middleware.RequirePermission("user", "create")).Post("/", userHandler.CreateUser)
@@ -153,9 +167,20 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 				r.With(middleware.RequirePermission("user", "update")).Put("/{id}", userHandler.UpdateUser)
 				r.With(middleware.RequirePermission("user", "update")).Patch("/{id}/status", userHandler.UpdateUserStatus)
 				r.With(middleware.RequirePermission("user", "update")).Patch("/{id}/password", userHandler.ResetPassword)
+				r.With(middleware.RequirePermission("user", "delete")).Delete("/{id}", userHandler.DeleteUser)
 			})
 
-			r.With(middleware.RequirePermission("role", "view")).Get("/roles", userHandler.ListRoles)
+			r.Route("/roles", func(r chi.Router) {
+				r.With(middleware.RequirePermission("role", "view")).Get("/", userHandler.ListRoles)
+				r.With(middleware.RequirePermission("role", "create")).Post("/", userHandler.CreateRole)
+				r.With(middleware.RequirePermission("role", "view")).Get("/{id}", userHandler.GetRole)
+				r.With(middleware.RequirePermission("role", "update")).Put("/{id}", userHandler.UpdateRole)
+				r.With(middleware.RequirePermission("role", "delete")).Delete("/{id}", userHandler.DeleteRole)
+				r.With(middleware.RequirePermission("role", "view")).Get("/{id}/permissions", userHandler.GetRolePermissions)
+				r.With(middleware.RequirePermission("role", "update")).Put("/{id}/permissions", userHandler.UpdateRolePermissions)
+			})
+
+			r.With(middleware.RequirePermission("permission", "view")).Get("/permissions", userHandler.ListPermissions)
 
 			r.Route("/reports", func(r chi.Router) {
 				r.With(middleware.RequirePermission("laporan", "view")).Get("/kas", reportHandler.LaporanKas)

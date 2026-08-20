@@ -88,6 +88,27 @@ var allPermissions = []permissionDef{
 func (d *Database) Seed() error {
 	db := d.DB
 
+	// Seed default website settings
+	var settingsCount int64
+	db.Model(&WebsiteSettings{}).Count(&settingsCount)
+	if settingsCount == 0 {
+		settings := WebsiteSettings{
+			NamaWebsite:    "SIM RT Tegalyoso 26",
+			NamaRT:         "RT 26",
+			Desa:           "Tegalyoso",
+			Kecamatan:      "Klaten Selatan",
+			Kabupaten:      "Klaten",
+			Provinsi:       "Jawa Tengah",
+			Copyright:      "© 2026 RT 26 RW 07 Kel. Tegalyoso",
+			ShowPengumuman: true,
+			ShowLaporan:    true,
+			ShowPengaduan:  true,
+		}
+		if err := db.Create(&settings).Error; err != nil {
+			return fmt.Errorf("gagal seed website settings: %w", err)
+		}
+	}
+
 	permIDs := map[string]string{}
 
 	for _, p := range allPermissions {

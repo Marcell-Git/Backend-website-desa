@@ -52,6 +52,7 @@ func (d *Database) RunMigrations() error {
 		&AuditLog{},
 		&Pengaduan{},
 		&PengaduanRiwayat{},
+		&WebsiteSettings{},
 	)
 	if err != nil {
 		return fmt.Errorf("gagal menjalankan migrasi: %w", err)

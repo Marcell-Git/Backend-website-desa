@@ -13,6 +13,7 @@ import (
 	"rt26/backend/internal/modules/dashboard"
 	"rt26/backend/internal/modules/finance"
 	"rt26/backend/internal/modules/masterdata"
+	"rt26/backend/internal/modules/pengaduan"
 	"rt26/backend/internal/pkg/response"
 )
 
@@ -28,6 +29,7 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 	masterdataHandler := masterdata.NewHandler(db)
 	financeHandler := finance.NewHandler(db)
 	announcementHandler := announcement.NewHandler(db)
+	pengaduanHandler := pengaduan.NewHandler(db)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +40,7 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.Refresh)
 		r.Get("/public/pengumuman", announcementHandler.ListPublished)
+		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
 
 		// protected
 		r.Group(func(r chi.Router) {
@@ -66,6 +69,14 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 				r.With(middleware.RequirePermission("anggota", "delete")).Delete("/{id}", masterdataHandler.DeleteAnggota)
 				r.With(middleware.RequirePermission("anggota", "update")).Patch("/{id}/kepala", masterdataHandler.SetKepala)
 				r.With(middleware.RequirePermission("anggota", "update")).Patch("/{id}/pindah", masterdataHandler.MoveAnggota)
+			})
+
+			r.Route("/anak-kos", func(r chi.Router) {
+				r.With(middleware.RequirePermission("anak-kos", "view")).Get("/", masterdataHandler.ListAnakKos)
+				r.With(middleware.RequirePermission("anak-kos", "create")).Post("/", masterdataHandler.CreateAnakKos)
+				r.With(middleware.RequirePermission("anak-kos", "view")).Get("/{id}", masterdataHandler.GetAnakKos)
+				r.With(middleware.RequirePermission("anak-kos", "update")).Put("/{id}", masterdataHandler.UpdateAnakKos)
+				r.With(middleware.RequirePermission("anak-kos", "delete")).Delete("/{id}", masterdataHandler.DeleteAnakKos)
 			})
 
 			r.Route("/kas", func(r chi.Router) {
@@ -112,6 +123,15 @@ func New(db *gorm.DB, cfg *config.Config) http.Handler {
 				r.With(middleware.RequirePermission("pengumuman", "view")).Get("/{id}", announcementHandler.GetPengumuman)
 				r.With(middleware.RequirePermission("pengumuman", "update")).Put("/{id}", announcementHandler.UpdatePengumuman)
 				r.With(middleware.RequirePermission("pengumuman", "delete")).Delete("/{id}", announcementHandler.DeletePengumuman)
+			})
+
+			r.Route("/pengaduan", func(r chi.Router) {
+				r.With(middleware.RequirePermission("pengaduan", "view")).Get("/", pengaduanHandler.ListPengaduan)
+				r.With(middleware.RequirePermission("pengaduan", "view")).Get("/{id}", pengaduanHandler.GetPengaduan)
+				r.With(middleware.RequirePermission("pengaduan", "update")).Patch("/{id}/status", pengaduanHandler.UpdateStatus)
+				r.With(middleware.RequirePermission("pengaduan", "update")).Post("/{id}/catatan", pengaduanHandler.AddCatatan)
+				r.With(middleware.RequirePermission("pengaduan", "view")).Get("/{id}/bukti", pengaduanHandler.DownloadBukti)
+				r.With(middleware.RequirePermission("pengaduan", "delete")).Delete("/{id}", pengaduanHandler.DeletePengaduan)
 			})
 		})
 	})

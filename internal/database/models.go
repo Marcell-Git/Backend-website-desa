@@ -180,3 +180,46 @@ type Pengumuman struct {
 }
 
 func (Pengumuman) TableName() string { return "pengumuman" }
+
+type AnakKos struct {
+	ID            string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	NIK           string         `gorm:"type:varchar(16);uniqueIndex" json:"nik"`
+	NamaLengkap   string         `gorm:"type:varchar(150)" json:"nama_lengkap"`
+	JenisKelamin  string         `gorm:"type:varchar(1);check:jenis_kelamin IN ('L','P')" json:"jenis_kelamin"`
+	TanggalLahir  string         `gorm:"type:date" json:"tanggal_lahir"`
+	Agama         string         `gorm:"type:varchar(30)" json:"agama"`
+	Pekerjaan     *string        `gorm:"type:varchar(100)" json:"pekerjaan,omitempty"`
+	NomorHP       *string        `gorm:"type:varchar(20)" json:"nomor_hp,omitempty"`
+	AlamatAsal    string         `gorm:"type:text" json:"alamat_asal"`
+	Status        bool           `gorm:"default:true" json:"status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (AnakKos) TableName() string { return "anak_kos" }
+
+type Pengaduan struct {
+	ID           string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	NamaPelapor  string         `gorm:"type:varchar(150);not null" json:"nama_pelapor"`
+	Lokasi       string         `gorm:"type:text;not null" json:"lokasi"`
+	Keterangan   string         `gorm:"type:text;not null" json:"keterangan"`
+	BuktiFile    *string        `gorm:"type:varchar(255)" json:"bukti_file,omitempty"`
+	Status       string         `gorm:"type:varchar(20);not null;default:menunggu" json:"status"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Pengaduan) TableName() string { return "pengaduan" }
+
+type PengaduanRiwayat struct {
+	ID             string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	PengaduanID    string    `gorm:"type:uuid;not null" json:"pengaduan_id"`
+	Status         string    `gorm:"type:varchar(20);not null" json:"status"`
+	Catatan        string    `gorm:"type:text;not null" json:"catatan"`
+	DitanganiOleh  string    `gorm:"type:varchar(150);not null" json:"ditangani_oleh"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+func (PengaduanRiwayat) TableName() string { return "pengaduan_riwayat" }

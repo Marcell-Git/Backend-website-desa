@@ -92,3 +92,40 @@ type UpdateAnggotaRequest struct {
 type MoveAnggotaRequest struct {
 	KartuKeluargaID string `json:"kartu_keluarga_id"`
 }
+
+type AnakKosData struct {
+	ID            string    `json:"id"`
+	NIK           string    `json:"nik"`
+	NamaLengkap   string    `json:"nama_lengkap"`
+	JenisKelamin  string    `json:"jenis_kelamin"`
+	TanggalLahir  string    `json:"tanggal_lahir"`
+	Agama         string    `json:"agama"`
+	Pekerjaan     *string   `json:"pekerjaan,omitempty"`
+	NomorHP       *string   `json:"nomor_hp,omitempty"`
+	AlamatAsal    string    `json:"alamat_asal"`
+	Status        bool      `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type CreateAnakKosRequest struct {
+	NIK          string  `json:"nik"`
+	NamaLengkap  string  `json:"nama_lengkap"`
+	JenisKelamin string  `json:"jenis_kelamin"`
+	TanggalLahir string  `json:"tanggal_lahir"`
+	Agama        string  `json:"agama"`
+	Pekerjaan    *string `json:"pekerjaan"`
+	NomorHP      *string `json:"nomor_hp"`
+	AlamatAsal   string  `json:"alamat_asal"`
+	Status       *bool   `json:"status"`
+}
+
+type UpdateAnakKosRequest struct {
+	NamaLengkap  string  `json:"nama_lengkap"`
+	JenisKelamin string  `json:"jenis_kelamin"`
+	Agama        string  `json:"agama"`
+	Pekerjaan    *string `json:"pekerjaan"`
+	NomorHP      *string `json:"nomor_hp"`
+	AlamatAsal   string  `json:"alamat_asal"`
+	Status       *bool   `json:"status"`
+}

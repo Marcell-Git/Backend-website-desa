@@ -67,6 +67,14 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	h.DB.WithContext(r.Context()).Model(&database.Pengumuman{}).
 		Where("deleted_at IS NULL AND status = 'published'").Count(&s.PengumumanAktif)
 
+	h.DB.WithContext(r.Context()).
+		Table("pengaduan").
+		Where("deleted_at IS NULL AND status = 'menunggu'").Count(&s.PengaduanBaru)
+
+	h.DB.WithContext(r.Context()).
+		Table("pengaduan").
+		Where("deleted_at IS NULL AND status = 'diproses'").Count(&s.PengaduanDiproses)
+
 	type auditRow struct {
 		ID        string
 		Modul     string

@@ -21,6 +21,8 @@ type Config struct {
 	BackupDir     string
 	PgDumpPath    string
 	PsqlPath      string
+	GeminiAPIKey  string
+	GeminiModel   string
 }
 
 func Load() (*Config, error) {
@@ -39,6 +41,8 @@ func Load() (*Config, error) {
 		BackupDir:     getEnv("BACKUP_DIR", "backups"),
 		PgDumpPath:    getEnv("PG_DUMP_PATH", "pg_dump"),
 		PsqlPath:      getEnv("PSQL_PATH", "psql"),
+		GeminiAPIKey:  getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:   getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 	}
 
 	if cfg.JWTSecret == "" {

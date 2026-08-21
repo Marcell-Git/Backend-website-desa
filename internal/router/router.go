@@ -39,6 +39,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	authHandler := auth.NewHandler(authService)
 	dashboardHandler := dashboard.NewHandler(db)
 	masterdataHandler := masterdata.NewHandler(db)
+	kkOCRHandler := masterdata.NewOCRHandler(cfg.GeminiAPIKey, cfg.GeminiModel)
 	financeHandler := finance.NewHandler(db)
 	announcementHandler := announcement.NewHandler(db)
 	pengaduanHandler := pengaduan.NewHandler(db)
@@ -78,6 +79,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 
 			r.Route("/kartu-keluarga", func(r chi.Router) {
 				r.With(middleware.RequirePermission("kartu-keluarga", "view")).Get("/", masterdataHandler.ListKK)
+				r.With(middleware.RequirePermission("kartu-keluarga", "create")).Post("/ocr", kkOCRHandler.OCRKK)
 				r.With(middleware.RequirePermission("kartu-keluarga", "create")).Post("/", masterdataHandler.CreateKK)
 				r.With(middleware.RequirePermission("kartu-keluarga", "view")).Get("/{id}", masterdataHandler.GetKK)
 				r.With(middleware.RequirePermission("kartu-keluarga", "update")).Put("/{id}", masterdataHandler.UpdateKK)

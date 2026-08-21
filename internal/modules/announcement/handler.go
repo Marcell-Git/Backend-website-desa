@@ -262,7 +262,21 @@ func (h *Handler) DeletePengumuman(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "Pengumuman berhasil dihapus", nil)
 }
 
+func (h *Handler) showPengumumanAktif(r *http.Request) bool {
+	var show bool
+	h.DB.WithContext(r.Context()).
+		Table("website_settings").
+		Select("show_pengumuman").
+		Scan(&show)
+	return show
+}
+
 func (h *Handler) ListPublished(w http.ResponseWriter, r *http.Request) {
+	if !h.showPengumumanAktif(r) {
+		response.Success(w, http.StatusOK, "Daftar Pengumuman", make([]Pengumuman, 0))
+		return
+	}
+
 	query := h.DB.WithContext(r.Context()).
 		Table("pengumuman p").
 		Select("p.id, p.judul, p.isi, p.tanggal_publikasi, p.status, u.nama as nama_user, p.created_at").
@@ -277,4 +291,36 @@ func (h *Handler) ListPublished(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, http.StatusOK, "Daftar Pengumuman", list)
+}
+
+type PengumumanPublikDetail struct {
+	ID               string    `json:"id"`
+	Judul            string    `json:"judul"`
+	Isi              string    `json:"isi"`
+	TanggalPublikasi time.Time `json:"tanggal_publikasi"`
+	NamaUser         string    `json:"nama_user"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+func (h *Handler) GetPublishedDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	if !h.showPengumumanAktif(r) {
+		response.Error(w, http.StatusForbidden, "Pengumuman tidak dipublikasikan")
+		return
+	}
+
+	var item PengumumanPublikDetail
+	err := h.DB.WithContext(r.Context()).
+		Table("pengumuman p").
+		Select("p.id, p.judul, p.isi, p.tanggal_publikasi, u.nama as nama_user, p.created_at").
+		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
+		Where("p.id = ? AND p.deleted_at IS NULL AND p.status = 'published'", id).
+		Scan(&item).Error
+	if err != nil || item.ID == "" {
+		response.Error(w, http.StatusNotFound, "Pengumuman tidak ditemukan")
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Detail Pengumuman", item)
 }

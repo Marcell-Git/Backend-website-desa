@@ -2,6 +2,8 @@ package router
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -45,6 +47,8 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	userHandler := user.NewHandler(db)
 	settingsHandler := settings.NewHandler(db, dir)
 
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			response.Success(w, http.StatusOK, "OK", map[string]string{"status": "healthy"})
@@ -54,6 +58,8 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.Refresh)
 		r.Get("/public/pengumuman", announcementHandler.ListPublished)
+		r.Get("/public/pengumuman/{id}", announcementHandler.GetPublishedDetail)
+		r.Get("/public/laporan", reportHandler.PublicLaporan)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
 		r.Get("/website-settings", settingsHandler.GetSettings)
 
@@ -154,11 +160,12 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				r.With(middleware.RequirePermission("audit-log", "view")).Get("/{id}", auditLogHandler.Get)
 			})
 
-			r.Route("/website-settings", func(r chi.Router) {
-				r.With(middleware.RequirePermission("website-settings", "update")).Put("/", settingsHandler.UpdateSettings)
-				r.With(middleware.RequirePermission("website-settings", "update")).Post("/logo", settingsHandler.UploadLogo)
-				r.With(middleware.RequirePermission("website-settings", "update")).Post("/favicon", settingsHandler.UploadFavicon)
-			})
+			r.With(middleware.RequirePermission("website-settings", "update")).
+				Put("/website-settings", settingsHandler.UpdateSettings)
+			r.With(middleware.RequirePermission("website-settings", "update")).
+				Post("/website-settings/logo", settingsHandler.UploadLogo)
+			r.With(middleware.RequirePermission("website-settings", "update")).
+				Post("/website-settings/favicon", settingsHandler.UploadFavicon)
 
 			r.Route("/users", func(r chi.Router) {
 				r.With(middleware.RequirePermission("user", "view")).Get("/", userHandler.ListUsers)
@@ -212,4 +219,25 @@ func recoverer(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+type noDirectoryListing struct {
+	fs http.FileSystem
+}
+
+func (n noDirectoryListing) Open(name string) (http.File, error) {
+	f, err := n.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if info.IsDir() {
+		f.Close()
+		return nil, os.ErrNotExist
+	}
+	return f, nil
 }

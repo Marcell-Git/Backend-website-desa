@@ -46,6 +46,16 @@ var allowedExtensions = map[string]bool{
 const maxFileSize = 10 << 20 // 10 MB
 
 func (h *Handler) SubmitPengaduan(w http.ResponseWriter, r *http.Request) {
+	var showPengaduan bool
+	h.DB.WithContext(r.Context()).
+		Table("website_settings").
+		Select("show_pengaduan").
+		Scan(&showPengaduan)
+	if !showPengaduan {
+		response.Error(w, http.StatusForbidden, "Formulir pengaduan sedang ditutup")
+		return
+	}
+
 	if err := r.ParseMultipartForm(maxFileSize); err != nil {
 		response.Error(w, http.StatusBadRequest, "Format request tidak valid")
 		return

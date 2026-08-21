@@ -14,7 +14,7 @@ func generatePDF(title string, headers []string, rows [][]string, summary string
 	pdf.AddPage()
 
 	pdf.SetFont("Helvetica", "B", 14)
-	pdf.CellFormat(0, 10, "RT 26, RW 07, Kelurahan Tegalyoso", "", 1, "C", false, 0, "")
+	pdf.CellFormat(0, 10, "RT 26 Kelurahan Tegalyoso", "", 1, "C", false, 0, "")
 	pdf.SetFont("Helvetica", "", 10)
 	pdf.CellFormat(0, 6, "Kecamatan Klaten Selatan, Kabupaten Klaten", "", 1, "C", false, 0, "")
 	pdf.Ln(4)

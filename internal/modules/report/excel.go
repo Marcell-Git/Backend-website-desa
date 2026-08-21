@@ -54,7 +54,7 @@ func generateExcel(sheetName string, headers []string, rows [][]string, summaryR
 	})
 
 	f.MergeCell(sheet, "A1", "A1")
-	f.SetCellValue(sheet, "A1", "RT 26, RW 07, Kelurahan Tegalyoso")
+	f.SetCellValue(sheet, "A1", "RT 26 Kelurahan Tegalyoso")
 	f.SetCellStyle(sheet, "A1", "A1", titleStyle)
 
 	f.SetCellValue(sheet, "A2", "Kecamatan Klaten Selatan, Kabupaten Klaten")

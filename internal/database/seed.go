@@ -99,7 +99,7 @@ func (d *Database) Seed() error {
 			Kecamatan:      "Klaten Selatan",
 			Kabupaten:      "Klaten",
 			Provinsi:       "Jawa Tengah",
-			Copyright:      "© 2026 RT 26 RW 07 Kel. Tegalyoso",
+			Copyright:      "© 2026 RT 26 Kel. Tegalyoso",
 			ShowPengumuman: true,
 			ShowLaporan:    true,
 			ShowPengaduan:  true,

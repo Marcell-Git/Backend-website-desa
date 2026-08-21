@@ -13,28 +13,34 @@ import (
 	"rt26/backend/internal/pkg/response"
 )
 
-func validateAnggota(req CreateAnggotaRequest, isKepala bool) []string {
-	errs := []string{}
-	if !validNIK(req.NIK) {
-		errs = append(errs, "NIK harus 16 digit angka")
+func validateAnggota(req CreateAnggotaRequest, isKepala bool) map[string][]string {
+	errs := map[string][]string{}
+	add := func(field, msg string) {
+		errs[field] = append(errs[field], msg)
+	}
+	switch {
+	case strings.TrimSpace(req.NIK) == "":
+		add("nik", "NIK wajib diisi")
+	case !validNIK(req.NIK):
+		add("nik", "NIK harus 16 digit angka")
 	}
 	if strings.TrimSpace(req.NamaLengkap) == "" {
-		errs = append(errs, "Nama lengkap wajib diisi")
+		add("nama_lengkap", "Nama lengkap wajib diisi")
 	}
 	if strings.TrimSpace(req.TempatLahir) == "" {
-		errs = append(errs, "Tempat lahir wajib diisi")
+		add("tempat_lahir", "Tempat lahir wajib diisi")
 	}
 	if _, err := parseDate(req.TanggalLahir); err != nil {
-		errs = append(errs, err.Error())
+		add("tanggal_lahir", err.Error())
 	}
 	if req.JenisKelamin != "L" && req.JenisKelamin != "P" {
-		errs = append(errs, "Jenis kelamin harus L atau P")
+		add("jenis_kelamin", "Jenis kelamin harus L atau P")
 	}
 	if strings.TrimSpace(req.Agama) == "" {
-		errs = append(errs, "Agama wajib diisi")
+		add("agama", "Agama wajib diisi")
 	}
 	if !isKepala && strings.TrimSpace(req.HubunganKeluarga) == "" {
-		errs = append(errs, "Hubungan keluarga wajib diisi")
+		add("hubungan_keluarga", "Hubungan keluarga wajib diisi")
 	}
 	return errs
 }
@@ -129,7 +135,9 @@ func (h *Handler) ListAnggota(w http.ResponseWriter, r *http.Request) {
 	}
 
 	list := make([]Anggota, 0)
-	if err := query.Offset(pg.Offset()).Limit(pg.Limit).Find(&list).Error; err != nil {
+	if err := query.
+		Select("anggota_keluarga.*, (SELECT COUNT(*) FROM anggota_keluarga ag2 WHERE ag2.kartu_keluarga_id = anggota_keluarga.kartu_keluarga_id AND ag2.deleted_at IS NULL) AS jumlah_anggota_kk").
+		Offset(pg.Offset()).Limit(pg.Limit).Find(&list).Error; err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
@@ -170,7 +178,7 @@ func (h *Handler) CreateAnggota(w http.ResponseWriter, r *http.Request) {
 
 	isKepala := strings.TrimSpace(req.HubunganKeluarga) == "Kepala Keluarga"
 	if errs := validateAnggota(req, isKepala); len(errs) > 0 {
-		response.ValidationError(w, map[string][]string{"anggota": errs})
+		response.ValidationError(w, errs)
 		return
 	}
 
@@ -328,19 +336,41 @@ func (h *Handler) DeleteAnggota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.HubunganKeluarga == "Kepala Keluarga" {
-		response.Error(w, http.StatusConflict, "Kepala keluarga tidak dapat dihapus. Tentukan pengganti kepala keluarga terlebih dahulu")
-		return
+		var sisa int64
+		h.DB.WithContext(r.Context()).Model(&database.AnggotaKeluarga{}).
+			Where("kartu_keluarga_id = ? AND deleted_at IS NULL AND id <> ?", a.KartuKeluargaID, id).
+			Count(&sisa)
+		if sisa > 0 {
+			response.Error(w, http.StatusConflict, "Kepala keluarga tidak dapat dihapus. Tentukan pengganti kepala keluarga terlebih dahulu")
+			return
+		}
 	}
 
-	result := h.DB.WithContext(r.Context()).Model(&database.AnggotaKeluarga{}).
-		Where("id = ? AND deleted_at IS NULL", id).
-		Update("deleted_at", "NOW()")
-	if result.Error != nil {
+	err = h.DB.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&database.AnggotaKeluarga{}).
+			Where("id = ? AND deleted_at IS NULL", id).
+			Update("deleted_at", gorm.Expr("NOW()"))
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		if a.HubunganKeluarga == "Kepala Keluarga" {
+			if err := tx.Model(&database.KartuKeluarga{}).
+				Where("id = ?", a.KartuKeluargaID).
+				Update("kepala_keluarga_id", nil).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			notFound(w, "Anggota keluarga tidak ditemukan")
+			return
+		}
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-	if result.RowsAffected == 0 {
-		notFound(w, "Anggota keluarga tidak ditemukan")
 		return
 	}
 

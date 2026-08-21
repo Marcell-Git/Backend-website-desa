@@ -60,6 +60,7 @@ type Anggota struct {
 	NomorHP          *string   `json:"nomor_hp,omitempty"`
 	HubunganKeluarga string    `json:"hubungan_keluarga"`
 	Status           bool      `json:"status"`
+	JumlahAnggotaKK  int       `json:"jumlah_anggota_kk"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }

@@ -18,6 +18,9 @@ type Config struct {
 	JWTSecret     string
 	AccessMinutes int
 	RefreshDays   int
+	BackupDir     string
+	PgDumpPath    string
+	PsqlPath      string
 }
 
 func Load() (*Config, error) {
@@ -33,6 +36,9 @@ func Load() (*Config, error) {
 		JWTSecret:     getEnv("JWT_SECRET", ""),
 		AccessMinutes: getEnvInt("JWT_ACCESS_MINUTES", 15),
 		RefreshDays:   getEnvInt("JWT_REFRESH_DAYS", 7),
+		BackupDir:     getEnv("BACKUP_DIR", "backups"),
+		PgDumpPath:    getEnv("PG_DUMP_PATH", "pg_dump"),
+		PsqlPath:      getEnv("PSQL_PATH", "psql"),
 	}
 
 	if cfg.JWTSecret == "" {

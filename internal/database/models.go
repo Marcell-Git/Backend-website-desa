@@ -246,3 +246,14 @@ type WebsiteSettings struct {
 }
 
 func (WebsiteSettings) TableName() string { return "website_settings" }
+
+type Backup struct {
+	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Filename   string         `gorm:"type:varchar(255);uniqueIndex" json:"nama_file"`
+	FileSize   int64          `json:"ukuran_file"`
+	DibuatOleh *string        `gorm:"type:uuid" json:"dibuat_oleh,omitempty"`
+	CreatedAt  time.Time      `json:"tanggal_backup"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Backup) TableName() string { return "backups" }

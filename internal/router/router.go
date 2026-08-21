@@ -13,6 +13,7 @@ import (
 	"rt26/backend/internal/modules/announcement"
 	"rt26/backend/internal/modules/auditlog"
 	"rt26/backend/internal/modules/auth"
+	"rt26/backend/internal/modules/backup"
 	"rt26/backend/internal/modules/dashboard"
 	"rt26/backend/internal/modules/finance"
 	"rt26/backend/internal/modules/masterdata"
@@ -46,6 +47,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	exportHandler := report.NewExportHandler(db)
 	userHandler := user.NewHandler(db)
 	settingsHandler := settings.NewHandler(db, dir)
+	backupHandler := backup.NewHandler(db, cfg, dir)
 
 	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 
@@ -158,6 +160,14 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 			r.Route("/audit-logs", func(r chi.Router) {
 				r.With(middleware.RequirePermission("audit-log", "view")).Get("/", auditLogHandler.List)
 				r.With(middleware.RequirePermission("audit-log", "view")).Get("/{id}", auditLogHandler.Get)
+			})
+
+			r.Route("/backup", func(r chi.Router) {
+				r.With(middleware.RequirePermission("backup", "view")).Get("/", backupHandler.List)
+				r.With(middleware.RequirePermission("backup", "create")).Post("/", backupHandler.Create)
+				r.With(middleware.RequirePermission("backup", "view")).Get("/{id}/download", backupHandler.Download)
+				r.With(middleware.RequirePermission("backup", "restore")).Post("/{id}/restore", backupHandler.Restore)
+				r.With(middleware.RequirePermission("backup", "delete")).Delete("/{id}", backupHandler.Delete)
 			})
 
 			r.With(middleware.RequirePermission("website-settings", "update")).

@@ -146,7 +146,7 @@ func (h *Handler) GetKK(w http.ResponseWriter, r *http.Request) {
 	var kk kkDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("kartu_keluarga kk").
-		Select("kk.*, a.nama_lengkap, a.nik, a.tempat_lahir, a.tanggal_lahir, (SELECT COUNT(*) FROM anggota_keluarga ag WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) as jumlah_anggota").
+		Select("kk.*, a.nama_lengkap AS nama_kepala, a.nik AS nik_kepala, a.tempat_lahir AS tempat_lahir_kepala, a.tanggal_lahir AS tanggal_lahir_kepala, (SELECT COUNT(*) FROM anggota_keluarga ag WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) as jumlah_anggota").
 		Joins("LEFT JOIN anggota_keluarga a ON a.id = kk.kepala_keluarga_id AND a.deleted_at IS NULL").
 		Where("kk.id = ? AND kk.deleted_at IS NULL", id).
 		Scan(&kk).Error
@@ -215,8 +215,8 @@ func (h *Handler) CreateKK(w http.ResponseWriter, r *http.Request) {
 		errs["provinsi"] = []string{"Provinsi wajib diisi"}
 	}
 	if req.Kepala != nil {
-		if e := validateAnggota(*req.Kepala, true); len(e) > 0 {
-			errs["kepala_keluarga"] = e
+		for k, v := range validateAnggota(*req.Kepala, true) {
+			errs[k] = v
 		}
 	}
 	if len(errs) > 0 {

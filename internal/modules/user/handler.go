@@ -112,6 +112,12 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "Detail Pengguna", user)
 }
 
+func (h *Handler) isSuperAdminRole(roleID string) bool {
+	var nama string
+	h.DB.Table("roles").Select("nama").Where("id = ? AND deleted_at IS NULL", roleID).Scan(&nama)
+	return nama == "Super Admin"
+}
+
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -139,6 +145,11 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(errs) > 0 {
 		response.ValidationError(w, errs)
+		return
+	}
+
+	if h.isSuperAdminRole(req.RoleID) && middleware.GetRoleName(r) != "Super Admin" {
+		response.Error(w, http.StatusForbidden, "Hanya Super Admin yang dapat menetapkan role Super Admin")
 		return
 	}
 
@@ -216,6 +227,11 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err := h.DB.WithContext(r.Context()).
 		Where("id = ? AND deleted_at IS NULL", id).First(&existing).Error; err != nil {
 		response.Error(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+		return
+	}
+
+	if h.isSuperAdminRole(req.RoleID) && middleware.GetRoleName(r) != "Super Admin" {
+		response.Error(w, http.StatusForbidden, "Hanya Super Admin yang dapat menetapkan role Super Admin")
 		return
 	}
 
@@ -401,7 +417,7 @@ func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("roles r").
-		Select("r.id, r.nama, r.deskripsi, r.status, r.created_at, r.updated_at, COUNT(u.id) as user_count, COUNT(DISTINCT rp.permission_id) as permission_count").
+		Select("r.id, r.nama, r.deskripsi, r.status, r.created_at, r.updated_at, COUNT(DISTINCT u.id) as user_count, COUNT(DISTINCT rp.permission_id) as permission_count").
 		Joins("LEFT JOIN users u ON u.role_id = r.id AND u.deleted_at IS NULL").
 		Joins("LEFT JOIN role_permissions rp ON rp.role_id = r.id").
 		Where("r.deleted_at IS NULL")

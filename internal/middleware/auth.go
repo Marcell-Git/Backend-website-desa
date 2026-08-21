@@ -80,6 +80,11 @@ func GetRoleID(r *http.Request) string {
 	return v
 }
 
+func GetRoleName(r *http.Request) string {
+	v, _ := r.Context().Value(CtxRole).(string)
+	return v
+}
+
 func GetPermissions(r *http.Request) []string {
 	v, _ := r.Context().Value(CtxPerms).([]string)
 	return v

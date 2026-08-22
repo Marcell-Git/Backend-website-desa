@@ -51,6 +51,7 @@ type UpdateKKRequest struct {
 type Anggota struct {
 	ID               string    `json:"id"`
 	KartuKeluargaID  string    `json:"kartu_keluarga_id"`
+	NomorKK          string    `json:"nomor_kk,omitempty"`
 	NIK              string    `json:"nik"`
 	NamaLengkap      string    `json:"nama_lengkap"`
 	TempatLahir      string    `json:"tempat_lahir"`

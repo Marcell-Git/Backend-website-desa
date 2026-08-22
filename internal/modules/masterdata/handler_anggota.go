@@ -136,7 +136,7 @@ func (h *Handler) ListAnggota(w http.ResponseWriter, r *http.Request) {
 
 	list := make([]Anggota, 0)
 	if err := query.
-		Select("anggota_keluarga.*, (SELECT COUNT(*) FROM anggota_keluarga ag2 WHERE ag2.kartu_keluarga_id = anggota_keluarga.kartu_keluarga_id AND ag2.deleted_at IS NULL) AS jumlah_anggota_kk").
+		Select("anggota_keluarga.*, (SELECT kk.nomor_kk FROM kartu_keluarga kk WHERE kk.id = anggota_keluarga.kartu_keluarga_id) AS nomor_kk, (SELECT COUNT(*) FROM anggota_keluarga ag2 WHERE ag2.kartu_keluarga_id = anggota_keluarga.kartu_keluarga_id AND ag2.deleted_at IS NULL) AS jumlah_anggota_kk").
 		Offset(pg.Offset()).Limit(pg.Limit).Find(&list).Error; err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return

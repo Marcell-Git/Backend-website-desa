@@ -46,26 +46,27 @@ func NewOCRHandler(apiKey, model string) *OCRHandler {
 // KKOCRData adalah hasil pembacaan foto KK yang dikirim ke frontend
 // untuk mengisi form secara otomatis.
 type KKOCRData struct {
-	NomorKK   string       `json:"nomor_kk"`
-	NomorHP   string       `json:"nomor_hp"`
-	Alamat    string       `json:"alamat"`
-	RT        string       `json:"rt"`
-	RW        string       `json:"rw"`
-	Desa      string       `json:"desa"`
-	Kecamatan string       `json:"kecamatan"`
-	Kabupaten string       `json:"kabupaten"`
-	Provinsi  string       `json:"provinsi"`
-	Kepala    *KKOCRKepala `json:"kepala_keluarga,omitempty"`
+	NomorKK   string         `json:"nomor_kk"`
+	NomorHP   string         `json:"nomor_hp"`
+	Alamat    string         `json:"alamat"`
+	RT        string         `json:"rt"`
+	RW        string         `json:"rw"`
+	Desa      string         `json:"desa"`
+	Kecamatan string         `json:"kecamatan"`
+	Kabupaten string         `json:"kabupaten"`
+	Provinsi  string         `json:"provinsi"`
+	Anggota   []KKOCRAnggota `json:"anggota,omitempty"`
 }
 
-type KKOCRKepala struct {
-	NIK          string `json:"nik"`
-	NamaLengkap  string `json:"nama_lengkap"`
-	TempatLahir  string `json:"tempat_lahir"`
-	TanggalLahir string `json:"tanggal_lahir"`
-	JenisKelamin string `json:"jenis_kelamin"`
-	Agama        string `json:"agama"`
-	Pekerjaan    string `json:"pekerjaan"`
+type KKOCRAnggota struct {
+	NIK              string `json:"nik"`
+	NamaLengkap      string `json:"nama_lengkap"`
+	TempatLahir      string `json:"tempat_lahir"`
+	TanggalLahir     string `json:"tanggal_lahir"`
+	JenisKelamin     string `json:"jenis_kelamin"`
+	Agama            string `json:"agama"`
+	Pekerjaan        string `json:"pekerjaan"`
+	HubunganKeluarga string `json:"hubungan_keluarga"`
 }
 
 type geminiInline struct {
@@ -74,7 +75,7 @@ type geminiInline struct {
 }
 
 type geminiPart struct {
-	Text       string       `json:"text,omitempty"`
+	Text       string        `json:"text,omitempty"`
 	InlineData *geminiInline `json:"inline_data,omitempty"`
 }
 
@@ -112,40 +113,51 @@ const kkOCRPrompt = `Anda adalah asisten yang mengekstrak data dari foto Kartu K
 Baca seluruh teks pada gambar dan ekstrak datanya ke dalam JSON sesuai skema yang diberikan.
 
 Aturan:
+- Ekstrak SEMUA orang yang tercantum di dokumen ke dalam array "anggota", satu objek per baris nama.
+- hubungan_keluarga untuk kepala keluarga diisi tepat "Kepala Keluarga". Untuk anggota lain gunakan
+  salah satu dari: Suami, Istri, Anak, Menantu, Cucu, Orang Tua, Mertua, Famili Lain, Pembantu, Lainnya.
 - nomor_kk dan nik harus berupa 16 digit angka tanpa spasi atau tanda hubung.
 - tanggal_lahir dalam format YYYY-MM-DD.
 - jenis_kelamin diisi "L" untuk LAKI-LAKI dan "P" untuk PEREMPUAN.
 - agama salah satu dari: Islam, Kristen, Katolik, Hindu, Buddha, Konghucu.
 - rt dan rw hanya angkanya saja, tanpa kata "RT"/"RW".
-- pekerjaan dan nomor_hp boleh kosong jika tidak tercantum.
+- pekerjaan boleh kosong jika tidak tercantum.
 - Jika suatu data tidak terbaca dengan jelas atau tidak ada di dokumen, isi string kosong.
 - Jangan pernah mengarang atau menebak data yang tidak terlihat.`
 
 func kkOCRSchema() json.RawMessage {
 	str := map[string]interface{}{"type": "string"}
-	props := func(p map[string]interface{}) map[string]interface{} {
-		return map[string]interface{}{"type": "object", "properties": p}
+	schema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"nomor_kk":  str,
+			"nomor_hp":  str,
+			"alamat":    str,
+			"rt":        str,
+			"rw":        str,
+			"desa":      str,
+			"kecamatan": str,
+			"kabupaten": str,
+			"provinsi":  str,
+			"anggota": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"nik":               str,
+						"nama_lengkap":      str,
+						"tempat_lahir":      str,
+						"tanggal_lahir":     str,
+						"jenis_kelamin":     str,
+						"agama":             str,
+						"pekerjaan":         str,
+						"hubungan_keluarga": str,
+					},
+					"required": []string{"nama_lengkap"},
+				},
+			},
+		},
 	}
-	schema := props(map[string]interface{}{
-		"nomor_kk":   str,
-		"nomor_hp":   str,
-		"alamat":     str,
-		"rt":         str,
-		"rw":         str,
-		"desa":       str,
-		"kecamatan":  str,
-		"kabupaten":  str,
-		"provinsi":   str,
-		"kepala_keluarga": props(map[string]interface{}{
-			"nik":           str,
-			"nama_lengkap":  str,
-			"tempat_lahir":  str,
-			"tanggal_lahir": str,
-			"jenis_kelamin": str,
-			"agama":         str,
-			"pekerjaan":     str,
-		}),
-	})
 	b, _ := json.Marshal(schema)
 	return b
 }
@@ -209,6 +221,26 @@ func normalizeTanggal(s string) string {
 	return ""
 }
 
+var hubunganList = []string{
+	"Kepala Keluarga", "Suami", "Istri", "Anak", "Menantu",
+	"Cucu", "Orang Tua", "Mertua", "Famili Lain", "Pembantu", "Lainnya",
+}
+
+func normalizeHubungan(s string) string {
+	low := strings.ToLower(strings.TrimSpace(s))
+	if low == "" {
+		return ""
+	}
+	for _, h := range hubunganList {
+		hl := strings.ToLower(h)
+		if low == hl || strings.Contains(low, hl) || strings.Contains(hl, low) {
+			return h
+		}
+	}
+	// KK sering menulis "KEPALA KELUARGA" atau "KEPALA" — sudah tercakup di atas.
+	return "Lainnya"
+}
+
 func normalizeOCRData(d *KKOCRData) {
 	d.NomorKK = digitsOnly(d.NomorKK)
 	d.NomorHP = strings.TrimSpace(d.NomorHP)
@@ -219,19 +251,29 @@ func normalizeOCRData(d *KKOCRData) {
 	d.Kecamatan = strings.TrimSpace(d.Kecamatan)
 	d.Kabupaten = strings.TrimSpace(d.Kabupaten)
 	d.Provinsi = strings.TrimSpace(d.Provinsi)
-	if d.Kepala != nil {
-		k := d.Kepala
-		k.NIK = digitsOnly(k.NIK)
-		k.NamaLengkap = strings.TrimSpace(k.NamaLengkap)
-		k.TempatLahir = strings.TrimSpace(k.TempatLahir)
-		k.TanggalLahir = normalizeTanggal(k.TanggalLahir)
-		k.JenisKelamin = normalizeJenisKelamin(k.JenisKelamin)
-		k.Agama = normalizeAgama(k.Agama)
-		k.Pekerjaan = strings.TrimSpace(k.Pekerjaan)
-		if k.NIK == "" && k.NamaLengkap == "" {
-			d.Kepala = nil
+
+	cleaned := make([]KKOCRAnggota, 0, len(d.Anggota))
+	seenNIK := map[string]bool{}
+	for _, a := range d.Anggota {
+		a.NIK = digitsOnly(a.NIK)
+		a.NamaLengkap = strings.TrimSpace(a.NamaLengkap)
+		a.TempatLahir = strings.TrimSpace(a.TempatLahir)
+		a.TanggalLahir = normalizeTanggal(a.TanggalLahir)
+		a.JenisKelamin = normalizeJenisKelamin(a.JenisKelamin)
+		a.Agama = normalizeAgama(a.Agama)
+		a.Pekerjaan = strings.TrimSpace(a.Pekerjaan)
+		a.HubunganKeluarga = normalizeHubungan(a.HubunganKeluarga)
+		if a.NamaLengkap == "" {
+			continue
 		}
+		key := a.NIK + "|" + strings.ToLower(a.NamaLengkap)
+		if seenNIK[key] {
+			continue
+		}
+		seenNIK[key] = true
+		cleaned = append(cleaned, a)
 	}
+	d.Anggota = cleaned
 }
 
 func (h *OCRHandler) OCRKK(w http.ResponseWriter, r *http.Request) {

@@ -3,6 +3,7 @@ package masterdata
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -52,6 +53,34 @@ func parseDate(s string) (time.Time, error) {
 func userIDPtr(r *http.Request) *string {
 	uid := middleware.GetUserID(r)
 	return &uid
+}
+
+// collectNIKErrors menandai NIK yang duplikat di dalam form atau sudah terdaftar di database.
+func (h *Handler) collectNIKErrors(r *http.Request, req *CreateKKRequest, errs map[string][]string) {
+	seen := map[string]bool{}
+	check := func(nik, key string) {
+		nik = strings.TrimSpace(nik)
+		if nik == "" || !validNIK(nik) {
+			return
+		}
+		if seen[nik] {
+			errs[key] = append(errs[key], "NIK duplikat dengan entri lain pada form ini")
+			return
+		}
+		seen[nik] = true
+		var exists bool
+		h.DB.WithContext(r.Context()).Raw(
+			"SELECT EXISTS(SELECT 1 FROM anggota_keluarga WHERE nik = ? AND deleted_at IS NULL)", nik).Scan(&exists)
+		if exists {
+			errs[key] = append(errs[key], "NIK telah terdaftar")
+		}
+	}
+	if req.Kepala != nil {
+		check(req.Kepala.NIK, "nik")
+	}
+	for i := range req.Anggota {
+		check(req.Anggota[i].NIK, fmt.Sprintf("anggota_%d_nik", i))
+	}
 }
 
 func notFound(w http.ResponseWriter, msg string) {
@@ -219,6 +248,18 @@ func (h *Handler) CreateKK(w http.ResponseWriter, r *http.Request) {
 			errs[k] = v
 		}
 	}
+	for i, a := range req.Anggota {
+		if strings.TrimSpace(a.HubunganKeluarga) == "Kepala Keluarga" {
+			errs[fmt.Sprintf("anggota_%d_hubungan_keluarga", i)] = []string{"Kepala keluarga diisi pada bagian Kepala Keluarga"}
+			continue
+		}
+		for k, v := range validateAnggota(a, false) {
+			errs[fmt.Sprintf("anggota_%d_%s", i, k)] = v
+		}
+	}
+	if len(errs) == 0 {
+		h.collectNIKErrors(r, &req, errs)
+	}
 	if len(errs) > 0 {
 		response.ValidationError(w, errs)
 		return
@@ -251,6 +292,12 @@ func (h *Handler) CreateKK(w http.ResponseWriter, r *http.Request) {
 				"kepala_keluarga_id": memberID,
 				"updated_at":         time.Now(),
 			})
+		}
+
+		for _, a := range req.Anggota {
+			if _, err := insertAnggota(tx, kkID, a, strings.TrimSpace(a.HubunganKeluarga)); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

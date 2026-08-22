@@ -24,16 +24,17 @@ type KartuKeluarga struct {
 }
 
 type CreateKKRequest struct {
-	NomorKK   string                `json:"nomor_kk"`
-	NomorHP   *string               `json:"nomor_hp"`
-	Alamat    string                `json:"alamat"`
-	RT        string                `json:"rt"`
-	RW        string                `json:"rw"`
-	Desa      string                `json:"desa"`
-	Kecamatan string                `json:"kecamatan"`
-	Kabupaten string                `json:"kabupaten"`
-	Provinsi  string                `json:"provinsi"`
-	Kepala    *CreateAnggotaRequest `json:"kepala_keluarga"`
+	NomorKK   string                 `json:"nomor_kk"`
+	NomorHP   *string                `json:"nomor_hp"`
+	Alamat    string                 `json:"alamat"`
+	RT        string                 `json:"rt"`
+	RW        string                 `json:"rw"`
+	Desa      string                 `json:"desa"`
+	Kecamatan string                 `json:"kecamatan"`
+	Kabupaten string                 `json:"kabupaten"`
+	Provinsi  string                 `json:"provinsi"`
+	Kepala    *CreateAnggotaRequest  `json:"kepala_keluarga"`
+	Anggota   []CreateAnggotaRequest `json:"anggota"`
 }
 
 type UpdateKKRequest struct {

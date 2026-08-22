@@ -93,6 +93,7 @@ func (h *Handler) GetAnakKos(w http.ResponseWriter, r *http.Request) {
 
 	var a AnakKosData
 	err := h.DB.WithContext(r.Context()).
+		Model(&database.AnakKos{}).
 		Where("id = ? AND deleted_at IS NULL", id).First(&a).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

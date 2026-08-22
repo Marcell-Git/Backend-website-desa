@@ -1,6 +1,8 @@
 package pengaduan
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,6 +46,14 @@ var allowedExtensions = map[string]bool{
 }
 
 const maxFileSize = 10 << 20 // 10 MB
+
+func randomFilename(ext string) (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf) + ext, nil
+}
 
 func (h *Handler) SubmitPengaduan(w http.ResponseWriter, r *http.Request) {
 	var showPengaduan bool
@@ -107,7 +117,11 @@ func (h *Handler) SubmitPengaduan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+		filename, err := randomFilename(ext)
+		if err != nil {
+			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
 		dstPath := filepath.Join(uploadDir, filename)
 
 		dst, err := os.Create(dstPath)

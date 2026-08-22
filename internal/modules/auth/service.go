@@ -98,9 +98,14 @@ func (s *Service) generateTokens(u *User) (access, refresh string, err error) {
 		return "", "", err
 	}
 
+	refreshJTI, err := helper.RandomTokenID()
+	if err != nil {
+		return "", "", err
+	}
 	refreshClaims := middleware.Claims{
 		UserID: u.ID,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        refreshJTI,
 			Subject:   u.ID,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(s.RefreshDays) * 24 * time.Hour)),

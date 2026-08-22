@@ -49,8 +49,9 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	userHandler := user.NewHandler(db)
 	settingsHandler := settings.NewHandler(db, dir)
 	backupHandler := backup.NewHandler(db, cfg, dir)
+	loginLimiter := middleware.NewLoginRateLimiter()
 
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
+	r.Handle("/uploads/settings/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +59,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		})
 
 		// public
-		r.Post("/auth/login", authHandler.Login)
+		r.With(loginLimiter.Middleware).Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.Refresh)
 		r.Get("/public/pengumuman", announcementHandler.ListPublished)
 		r.Get("/public/pengumuman/{id}", announcementHandler.GetPublishedDetail)

@@ -12,7 +12,6 @@ type WebsiteSettingsResponse struct {
 	Email           string `json:"email"`
 	Alamat          string `json:"alamat"`
 	LogoPath        string `json:"logo_path"`
-	FaviconPath     string `json:"favicon_path"`
 	Copyright       string `json:"copyright"`
 	ShowPengumuman  bool   `json:"show_pengumuman"`
 	ShowLaporan     bool   `json:"show_laporan"`

@@ -236,7 +236,6 @@ type WebsiteSettings struct {
 	Email          string    `gorm:"type:varchar(150)" json:"email"`
 	Alamat         string    `gorm:"type:text" json:"alamat"`
 	LogoPath       string    `gorm:"type:varchar(255)" json:"logo_path"`
-	FaviconPath    string    `gorm:"type:varchar(255)" json:"favicon_path"`
 	Copyright      string    `gorm:"type:varchar(200);default:'© 2026 RT 26 Kel. Tegalyoso'" json:"copyright"`
 	ShowPengumuman bool      `gorm:"default:true" json:"show_pengumuman"`
 	ShowLaporan    bool      `gorm:"default:true" json:"show_laporan"`

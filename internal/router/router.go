@@ -177,8 +177,6 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				Put("/website-settings", settingsHandler.UpdateSettings)
 			r.With(middleware.RequirePermission("website-settings", "update")).
 				Post("/website-settings/logo", settingsHandler.UploadLogo)
-			r.With(middleware.RequirePermission("website-settings", "update")).
-				Post("/website-settings/favicon", settingsHandler.UploadFavicon)
 
 			r.Route("/users", func(r chi.Router) {
 				r.With(middleware.RequirePermission("user", "view")).Get("/", userHandler.ListUsers)

@@ -50,7 +50,6 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		Email:           s.Email,
 		Alamat:          s.Alamat,
 		LogoPath:        s.LogoPath,
-		FaviconPath:     s.FaviconPath,
 		Copyright:       s.Copyright,
 		ShowPengumuman:  s.ShowPengumuman,
 		ShowLaporan:     s.ShowLaporan,
@@ -128,10 +127,6 @@ func (h *Handler) UploadLogo(w http.ResponseWriter, r *http.Request) {
 	h.uploadFile(w, r, "logo", 5*1024*1024, []string{".png", ".jpg", ".jpeg", ".svg"})
 }
 
-func (h *Handler) UploadFavicon(w http.ResponseWriter, r *http.Request) {
-	h.uploadFile(w, r, "favicon", 1*1024*1024, []string{".png", ".ico"})
-}
-
 func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request, field string, maxSize int64, allowedExts []string) {
 	if err := r.ParseMultipartForm(maxSize); err != nil {
 		response.Error(w, http.StatusBadRequest, "Ukuran file terlalu besar")
@@ -179,8 +174,6 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request, field strin
 	var oldPath string
 	if field == "logo" && s.LogoPath != "" {
 		oldPath = filepath.Join(h.BaseDir, s.LogoPath)
-	} else if field == "favicon" && s.FaviconPath != "" {
-		oldPath = filepath.Join(h.BaseDir, s.FaviconPath)
 	}
 
 	filename := field + "_" + time.Now().Format("20060102150405") + ext
@@ -204,8 +197,6 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request, field strin
 	}
 	if field == "logo" {
 		updates["logo_path"] = relPath
-	} else {
-		updates["favicon_path"] = relPath
 	}
 
 	result := h.DB.WithContext(r.Context()).Model(&s).Updates(updates)

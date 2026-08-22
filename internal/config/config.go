@@ -42,7 +42,7 @@ func Load() (*Config, error) {
 		PgDumpPath:    getEnv("PG_DUMP_PATH", "pg_dump"),
 		PsqlPath:      getEnv("PSQL_PATH", "psql"),
 		GeminiAPIKey:  getEnv("GEMINI_API_KEY", ""),
-		GeminiModel:   getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
+		GeminiModel:   getEnv("GEMINI_MODEL", "gemini-3.6-flash"),
 	}
 
 	if cfg.JWTSecret == "" {

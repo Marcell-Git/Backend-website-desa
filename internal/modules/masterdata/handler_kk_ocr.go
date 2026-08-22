@@ -160,6 +160,14 @@ func digitsOnly(s string) string {
 	return b.String()
 }
 
+func truncateReason(s string, n int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n]) + "..."
+}
+
 func normalizeJenisKelamin(s string) string {
 	u := strings.ToUpper(strings.TrimSpace(s))
 	switch {
@@ -286,7 +294,7 @@ func (h *OCRHandler) callGemini(r *http.Request, mimeType string, image []byte) 
 		}},
 		GenerationConfig: geminiGenerationConfig{
 			Temperature:     0,
-			MaxOutputTokens: 4096,
+			MaxOutputTokens: 8192,
 			ResponseMIME:    "application/json",
 			ResponseSchema:  kkOCRSchema(),
 		},
@@ -315,10 +323,18 @@ func (h *OCRHandler) callGemini(r *http.Request, mimeType string, image []byte) 
 		return nil, fmt.Errorf("respon OCR tidak valid")
 	}
 	if gr.Error != nil {
-		if resp.StatusCode == http.StatusTooManyRequests {
+		reason := truncateReason(gr.Error.Message, 160)
+		switch resp.StatusCode {
+		case http.StatusTooManyRequests:
 			return nil, fmt.Errorf("terlalu banyak permintaan scan, coba lagi sebentar")
+		case http.StatusUnauthorized, http.StatusForbidden:
+			return nil, fmt.Errorf("API key OCR tidak valid atau tidak memiliki akses: %s", reason)
+		default:
+			if reason != "" {
+				return nil, fmt.Errorf("layanan OCR menolak permintaan: %s", reason)
+			}
+			return nil, fmt.Errorf("layanan OCR menolak permintaan")
 		}
-		return nil, fmt.Errorf("layanan OCR menolak permintaan")
 	}
 	if len(gr.Candidates) == 0 {
 		return nil, fmt.Errorf("foto tidak dapat dikenali, coba ambil foto yang lebih jelas")

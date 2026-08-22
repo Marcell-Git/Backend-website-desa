@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	maxKKImageSize = 10 << 20 // 10 MB
-	geminiTimeout  = 60 * time.Second
+	maxOCRImageSize = 10 << 20 // 10 MB
+	geminiTimeout   = 60 * time.Second
 )
 
-var allowedKKImageTypes = map[string]string{
+var allowedOCRImageTypes = map[string]string{
 	"image/jpeg": "image/jpeg",
 	"image/png":  "image/png",
 	"image/webp": "image/webp",
@@ -34,7 +34,7 @@ type OCRHandler struct {
 
 func NewOCRHandler(apiKey, model string) *OCRHandler {
 	if model == "" {
-		model = "gemini-2.5-flash"
+		model = "gemini-3.6-flash"
 	}
 	return &OCRHandler{
 		apiKey: apiKey,
@@ -276,69 +276,90 @@ func normalizeOCRData(d *KKOCRData) {
 	d.Anggota = cleaned
 }
 
-func (h *OCRHandler) OCRKK(w http.ResponseWriter, r *http.Request) {
-	if h.apiKey == "" {
-		response.Error(w, http.StatusServiceUnavailable, "Fitur scan KK belum dikonfigurasi (GEMINI_API_KEY kosong)")
-		return
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, maxKKImageSize+(1<<20))
-	if err := r.ParseMultipartForm(maxKKImageSize); err != nil {
-		response.Error(w, http.StatusBadRequest, "Foto KK wajib diunggah (maksimal 10 MB)")
-		return
+// readImage memvalidasi & membaca file foto dari multipart form.
+// Mengembalikan (data, mimeType, true) atau menuliskan response error lalu (nil, "", false).
+func readImage(w http.ResponseWriter, r *http.Request, label string) ([]byte, string, bool) {
+	if err := r.ParseMultipartForm(maxOCRImageSize); err != nil {
+		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Foto %s wajib diunggah (maksimal 10 MB)", label))
+		return nil, "", false
 	}
 	file, header, err := r.FormFile("foto")
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "Foto KK wajib diunggah")
-		return
+		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Foto %s wajib diunggah", label))
+		return nil, "", false
 	}
 	defer file.Close()
 
 	sniff := make([]byte, 512)
 	n, _ := io.ReadFull(file, sniff)
 	sniffed := http.DetectContentType(sniff[:n])
-	mimeType := allowedKKImageTypes[sniffed]
+	mimeType := allowedOCRImageTypes[sniffed]
 	if mimeType == "" {
-		mimeType = allowedKKImageTypes[header.Header.Get("Content-Type")]
+		mimeType = allowedOCRImageTypes[header.Header.Get("Content-Type")]
 	}
 	if mimeType == "" {
 		response.Error(w, http.StatusUnsupportedMediaType, "Format foto harus JPG, PNG, WEBP, atau HEIC")
-		return
+		return nil, "", false
 	}
 
 	data, err := io.ReadAll(io.MultiReader(bytes.NewReader(sniff[:n]), file))
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "Gagal membaca file foto")
-		return
+		return nil, "", false
 	}
-	if len(data) > maxKKImageSize {
+	if len(data) > maxOCRImageSize {
 		response.Error(w, http.StatusBadRequest, "Ukuran foto maksimal 10 MB")
+		return nil, "", false
+	}
+	return data, mimeType, true
+}
+
+func (h *OCRHandler) OCRKK(w http.ResponseWriter, r *http.Request) {
+	data, mimeType, ok := h.beginScan(w, r, "KK")
+	if !ok {
 		return
 	}
 
-	result, err := h.callGemini(r, mimeType, data)
+	raw, err := h.callGeminiJSON(r, mimeType, data, kkOCRPrompt, kkOCRSchema())
 	if err != nil {
 		response.Error(w, http.StatusBadGateway, "Gagal memproses foto KK: "+err.Error())
 		return
 	}
+	var result KKOCRData
+	if err := json.Unmarshal(raw, &result); err != nil {
+		response.Error(w, http.StatusBadGateway, "Hasil pembacaan tidak valid, silakan isi manual")
+		return
+	}
 
-	normalizeOCRData(result)
+	normalizeOCRData(&result)
 	response.Success(w, http.StatusOK, "Data Kartu Keluarga berhasil dibaca", result)
 }
 
-func (h *OCRHandler) callGemini(r *http.Request, mimeType string, image []byte) (*KKOCRData, error) {
+// beginScan memeriksa konfigurasi OCR lalu membaca foto dari request.
+func (h *OCRHandler) beginScan(w http.ResponseWriter, r *http.Request, label string) ([]byte, string, bool) {
+	if h.apiKey == "" {
+		response.Error(w, http.StatusServiceUnavailable, fmt.Sprintf("Fitur scan %s belum dikonfigurasi (GEMINI_API_KEY kosong)", label))
+		return nil, "", false
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxOCRImageSize+(1<<20))
+	return readImage(w, r, label)
+}
+
+// callGeminiJSON mengirim foto + prompt ke Gemini dengan structured output,
+// mengembalikan teks JSON mentah dari model.
+func (h *OCRHandler) callGeminiJSON(r *http.Request, mimeType string, image []byte, prompt string, schema json.RawMessage) ([]byte, error) {
 	payload := geminiRequest{
 		Contents: []geminiContent{{
 			Parts: []geminiPart{
 				{InlineData: &geminiInline{MimeType: mimeType, Data: base64.StdEncoding.EncodeToString(image)}},
-				{Text: kkOCRPrompt},
+				{Text: prompt},
 			},
 		}},
 		GenerationConfig: geminiGenerationConfig{
 			Temperature:     0,
 			MaxOutputTokens: 8192,
 			ResponseMIME:    "application/json",
-			ResponseSchema:  kkOCRSchema(),
+			ResponseSchema:  schema,
 		},
 	}
 	body, err := json.Marshal(payload)
@@ -390,10 +411,5 @@ func (h *OCRHandler) callGemini(r *http.Request, mimeType string, image []byte) 
 	if raw == "" {
 		return nil, fmt.Errorf("data tidak terbaca dari foto, coba ambil foto yang lebih jelas")
 	}
-
-	var result KKOCRData
-	if err := json.Unmarshal([]byte(raw), &result); err != nil {
-		return nil, fmt.Errorf("hasil pembacaan tidak valid, silakan isi manual")
-	}
-	return &result, nil
+	return []byte(raw), nil
 }

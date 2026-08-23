@@ -1,0 +1,8 @@
+.env
+backups/
+uploads/
+server
+server.exe
+*.md
+Dockerfile
+.dockerignore

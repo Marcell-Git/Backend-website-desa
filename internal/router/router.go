@@ -77,6 +77,8 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 
 			r.With(middleware.RequirePermission("dashboard", "view")).
 				Get("/dashboard", dashboardHandler.Summary)
+			r.With(middleware.RequirePermission("dashboard", "view")).
+				Get("/dashboard/grafik", dashboardHandler.GrafikBulanan)
 
 			r.Route("/kartu-keluarga", func(r chi.Router) {
 				r.With(middleware.RequirePermission("kartu-keluarga", "view")).Get("/", masterdataHandler.ListKK)

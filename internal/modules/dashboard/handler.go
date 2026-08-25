@@ -1,7 +1,9 @@
 package dashboard
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -22,10 +24,8 @@ type Summary struct {
 	TotalKK             int64       `json:"total_kk"`
 	TotalPenduduk       int64       `json:"total_penduduk"`
 	SaldoKas            float64     `json:"saldo_kas"`
+	TotalIuran          float64     `json:"total_iuran"`
 	PengeluaranBulanIni float64     `json:"pengeluaran_bulan_ini"`
-	PengaduanBaru       int64       `json:"pengaduan_baru"`
-	PengaduanDiproses   int64       `json:"pengaduan_diproses"`
-	PengumumanAktif     int64       `json:"pengumuman_aktif"`
 	AktivitasTerbaru    []Aktivitas `json:"aktivitas_terbaru"`
 }
 
@@ -48,6 +48,76 @@ func sumColumn(db *gorm.DB, table, column string, where string, args ...interfac
 	return result
 }
 
+type GrafikItem struct {
+	BulanLabel  string  `json:"bulan_label"`
+	Kas         float64 `json:"kas"`
+	Iuran       float64 `json:"iuran"`
+	Pengeluaran float64 `json:"pengeluaran"`
+}
+
+var bulanIndo = []string{"Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"}
+
+func (h *Handler) GrafikBulanan(w http.ResponseWriter, r *http.Request) {
+	jumlahBulan := 12
+	if p := r.URL.Query().Get("bulan"); p != "" {
+		v, err := strconv.Atoi(p)
+		if err != nil || v < 6 || v > 12 {
+			response.ValidationError(w, map[string][]string{
+				"bulan": {"Bulan harus berupa angka antara 6 sampai 12"},
+			})
+			return
+		}
+		jumlahBulan = v
+	}
+
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+	now := time.Now().In(loc)
+	awal := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, -(jumlahBulan - 1), 0)
+
+	type bulananRow struct {
+		Tahun int
+		Bulan int
+		Total float64
+	}
+
+	sumPerBulan := func(table string) map[int]float64 {
+		var rows []bulananRow
+		h.DB.WithContext(r.Context()).
+			Table(table).
+			Select("EXTRACT(YEAR FROM tanggal) as tahun, EXTRACT(MONTH FROM tanggal) as bulan, COALESCE(SUM(nominal), 0) as total").
+			Where("deleted_at IS NULL AND tanggal >= ?", awal.Format("2006-01-02")).
+			Group("EXTRACT(YEAR FROM tanggal), EXTRACT(MONTH FROM tanggal)").
+			Scan(&rows)
+
+		result := make(map[int]float64, len(rows))
+		for _, row := range rows {
+			result[row.Tahun*100+row.Bulan] = row.Total
+		}
+		return result
+	}
+
+	kas := sumPerBulan("rekap_kas")
+	iuran := sumPerBulan("rekap_iuran")
+	pengeluaran := sumPerBulan("rekap_pengeluaran")
+
+	data := make([]GrafikItem, 0, jumlahBulan)
+	for i := jumlahBulan - 1; i >= 0; i-- {
+		t := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, -i, 0)
+		key := t.Year()*100 + int(t.Month())
+		data = append(data, GrafikItem{
+			BulanLabel:  fmt.Sprintf("%s %d", bulanIndo[t.Month()-1], t.Year()%100),
+			Kas:         kas[key],
+			Iuran:       iuran[key],
+			Pengeluaran: pengeluaran[key],
+		})
+	}
+
+	response.Success(w, http.StatusOK, "Grafik keuangan berhasil dimuat", data)
+}
+
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	var s Summary
 
@@ -60,20 +130,11 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 		sumColumn(h.DB, "rekap_iuran", "nominal", "") -
 		sumColumn(h.DB, "rekap_pengeluaran", "nominal", "")
 
+	s.TotalIuran = sumColumn(h.DB, "rekap_iuran", "nominal", "")
+
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	s.PengeluaranBulanIni = sumColumn(h.DB, "rekap_pengeluaran", "nominal", "tanggal >= ?", startOfMonth)
-
-	h.DB.WithContext(r.Context()).Model(&database.Pengumuman{}).
-		Where("deleted_at IS NULL AND status = 'published'").Count(&s.PengumumanAktif)
-
-	h.DB.WithContext(r.Context()).
-		Table("pengaduan").
-		Where("deleted_at IS NULL AND status = 'menunggu'").Count(&s.PengaduanBaru)
-
-	h.DB.WithContext(r.Context()).
-		Table("pengaduan").
-		Where("deleted_at IS NULL AND status = 'diproses'").Count(&s.PengaduanDiproses)
 
 	type auditRow struct {
 		ID        string

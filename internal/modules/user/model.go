@@ -4,8 +4,7 @@ import "time"
 
 type UserResponse struct {
 	ID        string     `json:"id"`
-	Nama      string     `json:"nama"`
-	Email     string     `json:"email"`
+	Username  string     `json:"username"`
 	NomorHP   *string    `json:"nomor_hp,omitempty"`
 	Jabatan   *string    `json:"jabatan,omitempty"`
 	RoleID    string     `json:"role_id"`
@@ -17,8 +16,7 @@ type UserResponse struct {
 }
 
 type CreateUserRequest struct {
-	Nama            string  `json:"nama"`
-	Email           string  `json:"email"`
+	Username        string  `json:"username"`
 	NomorHP         *string `json:"nomor_hp,omitempty"`
 	Jabatan         *string `json:"jabatan,omitempty"`
 	RoleID          string  `json:"role_id"`
@@ -28,12 +26,11 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Nama    string  `json:"nama"`
-	Email   string  `json:"email"`
-	NomorHP *string `json:"nomor_hp,omitempty"`
-	Jabatan *string `json:"jabatan,omitempty"`
-	RoleID  string  `json:"role_id"`
-	Status  *bool   `json:"status,omitempty"`
+	Username string  `json:"username"`
+	NomorHP  *string `json:"nomor_hp,omitempty"`
+	Jabatan  *string `json:"jabatan,omitempty"`
+	RoleID   string  `json:"role_id"`
+	Status   *bool   `json:"status,omitempty"`
 }
 
 type ResetPasswordRequest struct {

@@ -26,7 +26,7 @@ func (h *Handler) ListPengeluaran(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_pengeluaran p").
-		Select("p.*, kp.nama as nama_kategori_pengeluaran, u.nama as nama_user").
+		Select("p.*, kp.nama as nama_kategori_pengeluaran, u.username as nama_user").
 		Joins("LEFT JOIN kategori_pengeluaran kp ON kp.id = p.kategori_pengeluaran_id AND kp.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("p.deleted_at IS NULL")
@@ -105,7 +105,7 @@ func (h *Handler) GetPengeluaran(w http.ResponseWriter, r *http.Request) {
 	var item pengeluaranDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("rekap_pengeluaran p").
-		Select("p.*, kp.nama as nama_kategori_pengeluaran, u.nama as nama_user").
+		Select("p.*, kp.nama as nama_kategori_pengeluaran, u.username as nama_user").
 		Joins("LEFT JOIN kategori_pengeluaran kp ON kp.id = p.kategori_pengeluaran_id AND kp.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("p.id = ? AND p.deleted_at IS NULL", id).

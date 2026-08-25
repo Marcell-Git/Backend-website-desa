@@ -3,23 +3,22 @@ package auth
 import "time"
 
 type User struct {
-	ID        string     `json:"id"`
-	Nama      string     `json:"nama"`
-	Email     string     `json:"email"`
-	Password  string     `json:"-"`
-	NomorHP   *string    `json:"nomor_hp,omitempty"`
-	Jabatan   *string    `json:"jabatan,omitempty"`
-	RoleID    string     `json:"role_id"`
-	Role      string     `json:"role"`
-	Status    bool       `json:"status"`
-	LastLogin *time.Time `json:"last_login,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	Permission []string  `json:"permissions,omitempty"`
+	ID         string     `json:"id"`
+	Username   string     `json:"username"`
+	Password   string     `json:"-"`
+	NomorHP    *string    `json:"nomor_hp,omitempty"`
+	Jabatan    *string    `json:"jabatan,omitempty"`
+	RoleID     string     `json:"role_id"`
+	Role       string     `json:"role"`
+	Status     bool       `json:"status"`
+	LastLogin  *time.Time `json:"last_login,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	Permission []string   `json:"permissions,omitempty"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 

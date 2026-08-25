@@ -167,11 +167,10 @@ func (d *Database) Seed() error {
 	}
 
 	var count int64
-	db.Model(&User{}).Where("email = ?", "admin@email.com").Count(&count)
+	db.Model(&User{}).Where("username = ?", "admin").Count(&count)
 	if count == 0 {
 		admin := User{
-			Nama:     "Super Admin",
-			Email:    "admin@email.com",
+			Username: "admin",
 			Password: hash,
 			Jabatan:  strPtr("Administrator"),
 			RoleID:   superAdminID,
@@ -182,7 +181,7 @@ func (d *Database) Seed() error {
 		}
 	}
 
-	fmt.Println("seeding selesai: role Super Admin & Pengurus, akun admin@email.com")
+	fmt.Println("seeding selesai: role Super Admin & Pengurus, akun admin")
 	return nil
 }
 

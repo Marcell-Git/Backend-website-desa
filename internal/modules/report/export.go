@@ -24,7 +24,7 @@ func (h *ExportHandler) ExportKasPDF(w http.ResponseWriter, r *http.Request) {
 	var items []KasRow
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_kas rk").
-		Select("rk.tanggal, rk.sumber_kas, rk.nominal, rk.keterangan, u.nama as dibuat_oleh").
+		Select("rk.tanggal, rk.sumber_kas, rk.nominal, rk.keterangan, u.username as dibuat_oleh").
 		Joins("LEFT JOIN users u ON u.id = rk.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("rk.deleted_at IS NULL")
 	applyDateFilterToQuery(query, f).Order("rk.tanggal ASC").Scan(&items)
@@ -61,7 +61,7 @@ func (h *ExportHandler) ExportKasExcel(w http.ResponseWriter, r *http.Request) {
 	var items []KasRow
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_kas rk").
-		Select("rk.tanggal, rk.sumber_kas, rk.nominal, rk.keterangan, u.nama as dibuat_oleh").
+		Select("rk.tanggal, rk.sumber_kas, rk.nominal, rk.keterangan, u.username as dibuat_oleh").
 		Joins("LEFT JOIN users u ON u.id = rk.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("rk.deleted_at IS NULL")
 	applyDateFilterToQuery(query, f).Order("rk.tanggal ASC").Scan(&items)
@@ -98,7 +98,7 @@ func (h *ExportHandler) ExportIuranPDF(w http.ResponseWriter, r *http.Request) {
 	var items []IuranRow
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_iuran ri").
-		Select("ri.tanggal, ji.nama as jenis_iuran, ri.nominal, ri.keterangan, u.nama as dibuat_oleh").
+		Select("ri.tanggal, ji.nama as jenis_iuran, ri.nominal, ri.keterangan, u.username as dibuat_oleh").
 		Joins("LEFT JOIN jenis_iuran ji ON ji.id = ri.jenis_iuran_id AND ji.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = ri.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("ri.deleted_at IS NULL")
@@ -140,7 +140,7 @@ func (h *ExportHandler) ExportIuranExcel(w http.ResponseWriter, r *http.Request)
 	var items []IuranRow
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_iuran ri").
-		Select("ri.tanggal, ji.nama as jenis_iuran, ri.nominal, ri.keterangan, u.nama as dibuat_oleh").
+		Select("ri.tanggal, ji.nama as jenis_iuran, ri.nominal, ri.keterangan, u.username as dibuat_oleh").
 		Joins("LEFT JOIN jenis_iuran ji ON ji.id = ri.jenis_iuran_id AND ji.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = ri.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("ri.deleted_at IS NULL")
@@ -182,7 +182,7 @@ func (h *ExportHandler) ExportPengeluaranPDF(w http.ResponseWriter, r *http.Requ
 	var items []PengeluaranRow
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_pengeluaran rp").
-		Select("rp.tanggal, kp.nama as kategori_pengeluaran, rp.nominal, rp.keterangan, u.nama as dibuat_oleh").
+		Select("rp.tanggal, kp.nama as kategori_pengeluaran, rp.nominal, rp.keterangan, u.username as dibuat_oleh").
 		Joins("LEFT JOIN kategori_pengeluaran kp ON kp.id = rp.kategori_pengeluaran_id AND kp.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = rp.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("rp.deleted_at IS NULL")
@@ -224,7 +224,7 @@ func (h *ExportHandler) ExportPengeluaranExcel(w http.ResponseWriter, r *http.Re
 	var items []PengeluaranRow
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_pengeluaran rp").
-		Select("rp.tanggal, kp.nama as kategori_pengeluaran, rp.nominal, rp.keterangan, u.nama as dibuat_oleh").
+		Select("rp.tanggal, kp.nama as kategori_pengeluaran, rp.nominal, rp.keterangan, u.username as dibuat_oleh").
 		Joins("LEFT JOIN kategori_pengeluaran kp ON kp.id = rp.kategori_pengeluaran_id AND kp.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = rp.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("rp.deleted_at IS NULL")

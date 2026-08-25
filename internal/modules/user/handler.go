@@ -3,6 +3,7 @@ package user
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,6 +14,12 @@ import (
 	"rt26/backend/internal/pkg/helper"
 	"rt26/backend/internal/pkg/response"
 )
+
+var usernamePattern = regexp.MustCompile(`^[a-z0-9._]{3,50}$`)
+
+func validateUsername(username string) bool {
+	return usernamePattern.MatchString(username)
+}
 
 type Handler struct {
 	DB *gorm.DB
@@ -35,13 +42,13 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("users u").
-		Select("u.id, u.nama, u.email, u.nomor_hp, u.jabatan, u.role_id, r.nama as role_nama, u.status, u.last_login, u.created_at, u.updated_at").
+		Select("u.id, u.username, u.nomor_hp, u.jabatan, u.role_id, r.nama as role_nama, u.status, u.last_login, u.created_at, u.updated_at").
 		Joins("LEFT JOIN roles r ON r.id = u.role_id AND r.deleted_at IS NULL").
 		Where("u.deleted_at IS NULL")
 
 	if search != "" {
 		like := "%" + search + "%"
-		query = query.Where("(u.nama ILIKE ? OR u.email ILIKE ? OR u.jabatan ILIKE ?)", like, like, like)
+		query = query.Where("(u.username ILIKE ? OR u.jabatan ILIKE ?)", like, like)
 	}
 	if roleID != "" {
 		query = query.Where("u.role_id = ?", roleID)
@@ -57,7 +64,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		Where("u.deleted_at IS NULL")
 	if search != "" {
 		like := "%" + search + "%"
-		countQuery = countQuery.Where("(u.nama ILIKE ? OR u.email ILIKE ? OR u.jabatan ILIKE ?)", like, like, like)
+		countQuery = countQuery.Where("(u.username ILIKE ? OR u.jabatan ILIKE ?)", like, like)
 	}
 	if roleID != "" {
 		countQuery = countQuery.Where("u.role_id = ?", roleID)
@@ -69,15 +76,15 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	switch pg.Sort {
 	case "nama":
-		query = query.Order("u.nama ASC")
+		query = query.Order("u.username ASC")
 	case "-nama":
-		query = query.Order("u.nama DESC")
+		query = query.Order("u.username DESC")
 	case "created_at":
 		query = query.Order("u.created_at DESC")
 	case "-created_at":
 		query = query.Order("u.created_at ASC")
 	default:
-		query = query.Order("u.nama ASC")
+		query = query.Order("u.username ASC")
 	}
 
 	list := make([]UserResponse, 0)
@@ -100,7 +107,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	var user UserResponse
 	err := h.DB.WithContext(r.Context()).
 		Table("users u").
-		Select("u.id, u.nama, u.email, u.nomor_hp, u.jabatan, u.role_id, r.nama as role_nama, u.status, u.last_login, u.created_at, u.updated_at").
+		Select("u.id, u.username, u.nomor_hp, u.jabatan, u.role_id, r.nama as role_nama, u.status, u.last_login, u.created_at, u.updated_at").
 		Joins("LEFT JOIN roles r ON r.id = u.role_id AND r.deleted_at IS NULL").
 		Where("u.id = ? AND u.deleted_at IS NULL", id).
 		Scan(&user).Error
@@ -126,13 +133,11 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	errs := map[string][]string{}
-	req.Nama = strings.TrimSpace(req.Nama)
-	if req.Nama == "" {
-		errs["nama"] = []string{"Nama wajib diisi"}
-	}
-	req.Email = strings.TrimSpace(req.Email)
-	if req.Email == "" {
-		errs["email"] = []string{"Email wajib diisi"}
+	req.Username = strings.ToLower(strings.TrimSpace(req.Username))
+	if req.Username == "" {
+		errs["username"] = []string{"Username wajib diisi"}
+	} else if !validateUsername(req.Username) {
+		errs["username"] = []string{"Username hanya boleh berisi huruf kecil, angka, titik, dan underscore (3-50 karakter)"}
 	}
 	if req.RoleID == "" {
 		errs["role_id"] = []string{"Role wajib dipilih"}
@@ -155,9 +160,9 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	var count int64
 	h.DB.WithContext(r.Context()).Model(&database.User{}).
-		Where("email = ? AND deleted_at IS NULL", req.Email).Count(&count)
+		Where("username = ? AND deleted_at IS NULL", req.Username).Count(&count)
 	if count > 0 {
-		response.ValidationError(w, map[string][]string{"email": {"Email telah digunakan"}})
+		response.ValidationError(w, map[string][]string{"username": {"Username telah digunakan"}})
 		return
 	}
 
@@ -173,17 +178,16 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model := database.User{
-		Nama:    req.Nama,
-		Email:   req.Email,
-		NomorHP: req.NomorHP,
-		Jabatan: req.Jabatan,
-		RoleID:  req.RoleID,
+		Username: req.Username,
+		NomorHP:  req.NomorHP,
+		Jabatan:  req.Jabatan,
+		RoleID:   req.RoleID,
 		Password: hash,
-		Status:  status,
+		Status:   status,
 	}
 	if err := h.DB.WithContext(r.Context()).Create(&model).Error; err != nil {
 		if helper.IsDuplicateErrorGORM(err) {
-			response.ValidationError(w, map[string][]string{"email": {"Email telah digunakan"}})
+			response.ValidationError(w, map[string][]string{"username": {"Username telah digunakan"}})
 			return
 		}
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
@@ -191,9 +195,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "User Management", "Tambah Pengguna",
-		"Menambahkan pengguna: "+req.Nama, nil, map[string]string{
-			"nama":  req.Nama,
-			"email": req.Email,
+		"Menambahkan pengguna: "+req.Username, nil, map[string]string{
+			"username": req.Username,
 		})
 	response.Created(w, "Pengguna berhasil ditambahkan", map[string]string{"id": model.ID})
 }
@@ -207,13 +210,11 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	errs := map[string][]string{}
-	req.Nama = strings.TrimSpace(req.Nama)
-	if req.Nama == "" {
-		errs["nama"] = []string{"Nama wajib diisi"}
-	}
-	req.Email = strings.TrimSpace(req.Email)
-	if req.Email == "" {
-		errs["email"] = []string{"Email wajib diisi"}
+	req.Username = strings.ToLower(strings.TrimSpace(req.Username))
+	if req.Username == "" {
+		errs["username"] = []string{"Username wajib diisi"}
+	} else if !validateUsername(req.Username) {
+		errs["username"] = []string{"Username hanya boleh berisi huruf kecil, angka, titik, dan underscore (3-50 karakter)"}
 	}
 	if req.RoleID == "" {
 		errs["role_id"] = []string{"Role wajib dipilih"}
@@ -237,9 +238,9 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	var count int64
 	h.DB.WithContext(r.Context()).Model(&database.User{}).
-		Where("email = ? AND id != ? AND deleted_at IS NULL", req.Email, id).Count(&count)
+		Where("username = ? AND id != ? AND deleted_at IS NULL", req.Username, id).Count(&count)
 	if count > 0 {
-		response.ValidationError(w, map[string][]string{"email": {"Email telah digunakan"}})
+		response.ValidationError(w, map[string][]string{"username": {"Username telah digunakan"}})
 		return
 	}
 
@@ -251,8 +252,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	result := h.DB.WithContext(r.Context()).Model(&database.User{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]interface{}{
-			"nama":      req.Nama,
-			"email":     req.Email,
+			"username":  req.Username,
 			"nomor_hp":  req.NomorHP,
 			"jabatan":   req.Jabatan,
 			"role_id":   req.RoleID,
@@ -261,7 +261,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		})
 	if result.Error != nil {
 		if helper.IsDuplicateErrorGORM(result.Error) {
-			response.ValidationError(w, map[string][]string{"email": {"Email telah digunakan"}})
+			response.ValidationError(w, map[string][]string{"username": {"Username telah digunakan"}})
 			return
 		}
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
@@ -273,7 +273,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "User Management", "Ubah Pengguna",
-		"Memperbarui pengguna: "+req.Nama, existing, req)
+		"Memperbarui pengguna: "+req.Username, existing, req)
 	response.Success(w, http.StatusOK, "Pengguna berhasil diperbarui", nil)
 }
 
@@ -312,7 +312,7 @@ func (h *Handler) UpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 		statusText = "nonaktif"
 	}
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "User Management", "Ubah Status Pengguna",
-		"Mengubah status pengguna "+existing.Nama+" menjadi "+statusText, existing, map[string]bool{"status": req.Status})
+		"Mengubah status pengguna "+existing.Username+" menjadi "+statusText, existing, map[string]bool{"status": req.Status})
 	response.Success(w, http.StatusOK, "Status pengguna berhasil diperbarui", nil)
 }
 
@@ -365,7 +365,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "User Management", "Reset Password",
-		"Meriset password pengguna: "+existing.Nama, nil, nil)
+		"Meriset password pengguna: "+existing.Username, nil, nil)
 	response.Success(w, http.StatusOK, "Password berhasil direset", nil)
 }
 
@@ -407,7 +407,7 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "User Management", "Hapus Pengguna",
-		"Menghapus (soft) pengguna: "+existing.Nama, existing, nil)
+		"Menghapus (soft) pengguna: "+existing.Username, existing, nil)
 	response.Success(w, http.StatusOK, "Pengguna berhasil dihapus", nil)
 }
 

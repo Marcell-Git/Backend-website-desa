@@ -10,12 +10,12 @@ import (
 )
 
 func loginRequest() *http.Request {
-	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(`{"email":"Admin@Example.com","password":"salah"}`))
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(`{"username":"Admin","password":"salah"}`))
 	req.RemoteAddr = "10.0.0.1:54321"
 	return req.Clone(context.Background())
 }
 
-func TestLoginRateLimiterEmailLockout(t *testing.T) {
+func TestLoginRateLimiterUsernameLockout(t *testing.T) {
 	l := NewLoginRateLimiter()
 	current := time.Now()
 	l.now = func() time.Time { return current }
@@ -90,12 +90,12 @@ func TestLoginRateLimiterSuccessClearsFailures(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	for i := 0; i < emailMaxFails-1; i++ {
+	for i := 0; i < usernameMaxFails-1; i++ {
 		failHandler.ServeHTTP(httptest.NewRecorder(), loginRequest())
 	}
 	okHandler.ServeHTTP(httptest.NewRecorder(), loginRequest())
 
-	for i := 0; i < emailMaxFails; i++ {
+	for i := 0; i < usernameMaxFails; i++ {
 		res := httptest.NewRecorder()
 		failHandler.ServeHTTP(res, loginRequest())
 		if res.Code != http.StatusUnauthorized {
@@ -104,22 +104,22 @@ func TestLoginRateLimiterSuccessClearsFailures(t *testing.T) {
 	}
 }
 
-func TestLoginRateLimiterDifferentEmailsIndependent(t *testing.T) {
+func TestLoginRateLimiterDifferentUsernamesIndependent(t *testing.T) {
 	l := NewLoginRateLimiter()
 
 	failHandler := l.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 
-	for i := 0; i < emailMaxFails; i++ {
+	for i := 0; i < usernameMaxFails; i++ {
 		failHandler.ServeHTTP(httptest.NewRecorder(), loginRequest())
 	}
 
-	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(`{"email":"lain@example.com","password":"x"}`))
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(`{"username":"pengguna_lain","password":"x"}`))
 	req.RemoteAddr = "10.0.0.2:1234"
 	res := httptest.NewRecorder()
 	failHandler.ServeHTTP(res, req.Clone(context.Background()))
 	if res.Code != http.StatusUnauthorized {
-		t.Fatalf("email lain tidak boleh terdampak lockout: ingin 401, dapat %d", res.Code)
+		t.Fatalf("username lain tidak boleh terdampak lockout: ingin 401, dapat %d", res.Code)
 	}
 }

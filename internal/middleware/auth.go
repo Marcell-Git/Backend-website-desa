@@ -12,9 +12,8 @@ import (
 type ctxKey string
 
 const (
-	CtxUserID    ctxKey = "user_id"
-	CtxUserEmail ctxKey = "user_email"
-	CtxUserName  ctxKey = "user_nama"
+	CtxUserID ctxKey = "user_id"
+	CtxUserName ctxKey = "user_nama"
 	CtxRoleID    ctxKey = "role_id"
 	CtxRole      ctxKey = "role"
 	CtxPerms     ctxKey = "permissions"
@@ -22,8 +21,7 @@ const (
 
 type Claims struct {
 	UserID      string   `json:"uid"`
-	Email       string   `json:"email"`
-	Nama        string   `json:"nama"`
+	Username    string   `json:"username"`
 	RoleID      string   `json:"rid"`
 	Role        string   `json:"role"`
 	Permissions []string `json:"perms"`
@@ -54,8 +52,7 @@ func RequireAuth(secret string) func(http.Handler) http.Handler {
 			}
 
 			ctx := context.WithValue(r.Context(), CtxUserID, claims.UserID)
-			ctx = context.WithValue(ctx, CtxUserEmail, claims.Email)
-			ctx = context.WithValue(ctx, CtxUserName, claims.Nama)
+			ctx = context.WithValue(ctx, CtxUserName, claims.Username)
 			ctx = context.WithValue(ctx, CtxRoleID, claims.RoleID)
 			ctx = context.WithValue(ctx, CtxRole, claims.Role)
 			ctx = context.WithValue(ctx, CtxPerms, claims.Permissions)

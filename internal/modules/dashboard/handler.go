@@ -148,7 +148,7 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	var rows []auditRow
 	h.DB.WithContext(r.Context()).
 		Table("audit_logs al").
-		Select("al.id, al.modul, al.aktivitas, COALESCE(al.deskripsi, '') as deskripsi, COALESCE(u.nama, 'Sistem') as nama, al.created_at as waktu").
+		Select("al.id, al.modul, al.aktivitas, COALESCE(al.deskripsi, '') as deskripsi, COALESCE(u.username, 'Sistem') as nama, al.created_at as waktu").
 		Joins("LEFT JOIN users u ON u.id = al.user_id").
 		Order("al.created_at DESC").
 		Limit(10).

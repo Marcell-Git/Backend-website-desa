@@ -63,7 +63,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("backups b").
-		Select("b.id, b.filename, b.file_size, u.nama as nama, b.created_at").
+		Select("b.id, b.filename, b.file_size, u.username as nama, b.created_at").
 		Joins("LEFT JOIN users u ON u.id = b.dibuat_oleh")
 
 	if search != "" {

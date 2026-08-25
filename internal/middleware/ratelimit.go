@@ -14,25 +14,25 @@ import (
 )
 
 const (
-	ipWindow       = time.Minute
-	ipMaxRequests  = 10
-	emailWindow    = 15 * time.Minute
-	emailMaxFails  = 5
-	maxBodyInspect = 64 << 10
+	ipWindow        = time.Minute
+	ipMaxRequests   = 10
+	usernameWindow  = 15 * time.Minute
+	usernameMaxFails = 5
+	maxBodyInspect  = 64 << 10
 )
 
 type LoginRateLimiter struct {
-	mu         sync.Mutex
-	ipHits     map[string][]time.Time
-	emailFails map[string][]time.Time
-	now        func() time.Time
+	mu            sync.Mutex
+	ipHits        map[string][]time.Time
+	usernameFails map[string][]time.Time
+	now           func() time.Time
 }
 
 func NewLoginRateLimiter() *LoginRateLimiter {
 	return &LoginRateLimiter{
-		ipHits:     make(map[string][]time.Time),
-		emailFails: make(map[string][]time.Time),
-		now:        time.Now,
+		ipHits:        make(map[string][]time.Time),
+		usernameFails: make(map[string][]time.Time),
+		now:           time.Now,
 	}
 }
 
@@ -44,8 +44,8 @@ func (l *LoginRateLimiter) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		email := extractLoginEmail(r)
-		if email != "" && l.emailBlocked(email) {
+		username := extractLoginUsername(r)
+		if username != "" && l.usernameBlocked(username) {
 			response.Error(w, http.StatusTooManyRequests, "Terlalu banyak percobaan login gagal untuk akun ini. Silakan coba lagi dalam 15 menit.")
 			return
 		}
@@ -55,9 +55,9 @@ func (l *LoginRateLimiter) Middleware(next http.Handler) http.Handler {
 
 		switch {
 		case rec.status == http.StatusUnauthorized:
-			l.recordFailure(email)
+			l.recordFailure(username)
 		case rec.status < http.StatusBadRequest:
-			l.clearFailures(email)
+			l.clearFailures(username)
 		}
 	})
 }
@@ -78,32 +78,32 @@ func (l *LoginRateLimiter) ipBlocked(ip string) bool {
 	return false
 }
 
-func (l *LoginRateLimiter) emailBlocked(email string) bool {
+func (l *LoginRateLimiter) usernameBlocked(username string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	cutoff := l.now().Add(-emailWindow)
-	fails := filterRecent(l.emailFails[email], cutoff)
-	l.emailFails[email] = fails
-	return len(fails) >= emailMaxFails
+	cutoff := l.now().Add(-usernameWindow)
+	fails := filterRecent(l.usernameFails[username], cutoff)
+	l.usernameFails[username] = fails
+	return len(fails) >= usernameMaxFails
 }
 
-func (l *LoginRateLimiter) recordFailure(email string) {
-	if email == "" {
+func (l *LoginRateLimiter) recordFailure(username string) {
+	if username == "" {
 		return
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.emailFails[email] = append(l.emailFails[email], l.now())
+	l.usernameFails[username] = append(l.usernameFails[username], l.now())
 }
 
-func (l *LoginRateLimiter) clearFailures(email string) {
-	if email == "" {
+func (l *LoginRateLimiter) clearFailures(username string) {
+	if username == "" {
 		return
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	delete(l.emailFails, email)
+	delete(l.usernameFails, username)
 }
 
 func filterRecent(times []time.Time, cutoff time.Time) []time.Time {
@@ -130,7 +130,7 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-func extractLoginEmail(r *http.Request) string {
+func extractLoginUsername(r *http.Request) string {
 	if r.Body == nil {
 		return ""
 	}
@@ -143,12 +143,12 @@ func extractLoginEmail(r *http.Request) string {
 	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	var req struct {
-		Email string `json:"email"`
+		Username string `json:"username"`
 	}
 	if json.Unmarshal(body, &req) != nil {
 		return ""
 	}
-	return strings.ToLower(strings.TrimSpace(req.Email))
+	return strings.ToLower(strings.TrimSpace(req.Username))
 }
 
 type statusRecorder struct {

@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("email atau password tidak valid")
+	ErrInvalidCredentials = errors.New("username atau password tidak valid")
 	ErrInactiveAccount    = errors.New("akun anda dinonaktifkan")
 	ErrInvalidRefresh     = errors.New("refresh token tidak valid")
 )
@@ -30,10 +30,10 @@ func NewService(db *gorm.DB, secret string, accessMin, refreshDays int) *Service
 	return &Service{DB: db, JWTSecret: secret, AccessMin: accessMin, RefreshDays: refreshDays}
 }
 
-func (s *Service) findByEmail(ctx context.Context, email string) (*User, error) {
+func (s *Service) findByUsername(ctx context.Context, username string) (*User, error) {
 	var dbUser database.User
 	err := s.DB.WithContext(ctx).
-		Where("email = ?", email).
+		Where("username = ?", username).
 		First(&dbUser).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -44,8 +44,7 @@ func (s *Service) findByEmail(ctx context.Context, email string) (*User, error) 
 
 	var u User
 	u.ID = dbUser.ID
-	u.Nama = dbUser.Nama
-	u.Email = dbUser.Email
+	u.Username = dbUser.Username
 	u.Password = dbUser.Password
 	u.NomorHP = dbUser.NomorHP
 	u.Jabatan = dbUser.Jabatan
@@ -82,8 +81,7 @@ func (s *Service) generateTokens(u *User) (access, refresh string, err error) {
 
 	accessClaims := middleware.Claims{
 		UserID:      u.ID,
-		Email:       u.Email,
-		Nama:        u.Nama,
+		Username:    u.Username,
 		RoleID:      u.RoleID,
 		Role:        u.Role,
 		Permissions: perms,
@@ -130,7 +128,7 @@ func (s *Service) storeRefreshToken(ctx context.Context, userID, refreshToken st
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
-	u, err := s.findByEmail(ctx, req.Email)
+	u, err := s.findByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
@@ -192,8 +190,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginRespo
 
 	var u User
 	u.ID = dbUser.ID
-	u.Nama = dbUser.Nama
-	u.Email = dbUser.Email
+	u.Username = dbUser.Username
 	u.Password = dbUser.Password
 	u.NomorHP = dbUser.NomorHP
 	u.Jabatan = dbUser.Jabatan

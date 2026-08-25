@@ -67,7 +67,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("audit_logs").
-		Select("audit_logs.*, COALESCE(u.nama, '') as nama_user, COALESCE(r.nama, '') as role_user").
+		Select("audit_logs.*, COALESCE(u.username, '') as nama_user, COALESCE(r.nama, '') as role_user").
 		Joins("LEFT JOIN users u ON u.id = audit_logs.user_id AND u.deleted_at IS NULL").
 		Joins("LEFT JOIN roles r ON r.id = u.role_id AND r.deleted_at IS NULL")
 
@@ -78,7 +78,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	if search != "" {
 		like := "%" + search + "%"
-		condition := "(u.nama ILIKE ? OR audit_logs.modul ILIKE ? OR audit_logs.aktivitas ILIKE ? OR audit_logs.deskripsi ILIKE ?)"
+		condition := "(u.username ILIKE ? OR audit_logs.modul ILIKE ? OR audit_logs.aktivitas ILIKE ? OR audit_logs.deskripsi ILIKE ?)"
 		query = query.Where(condition, like, like, like, like)
 		countQuery = countQuery.Where(condition, like, like, like, like)
 	}
@@ -144,7 +144,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	var row scanRow
 	if err := h.DB.WithContext(r.Context()).
 		Table("audit_logs").
-		Select("audit_logs.*, COALESCE(u.nama, '') as nama_user, COALESCE(r.nama, '') as role_user").
+		Select("audit_logs.*, COALESCE(u.username, '') as nama_user, COALESCE(r.nama, '') as role_user").
 		Joins("LEFT JOIN users u ON u.id = audit_logs.user_id AND u.deleted_at IS NULL").
 		Joins("LEFT JOIN roles r ON r.id = u.role_id AND r.deleted_at IS NULL").
 		Where("audit_logs.id = ?", id).

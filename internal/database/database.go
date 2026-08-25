@@ -58,6 +58,17 @@ func (d *Database) RunMigrations() error {
 	if err != nil {
 		return fmt.Errorf("gagal menjalankan migrasi: %w", err)
 	}
+
+	if err := d.DB.Exec(`ALTER TABLE users DROP COLUMN IF EXISTS email`).Error; err != nil {
+		return fmt.Errorf("gagal menghapus kolom email: %w", err)
+	}
+	if err := d.DB.Exec(`DROP INDEX IF EXISTS idx_users_email`).Error; err != nil {
+		return fmt.Errorf("gagal menghapus index email: %w", err)
+	}
+	if err := d.DB.Exec(`ALTER TABLE users DROP COLUMN IF EXISTS nama`).Error; err != nil {
+		return fmt.Errorf("gagal menghapus kolom nama: %w", err)
+	}
+
 	log.Println("migrasi diterapkan via AutoMigrate")
 	return nil
 }

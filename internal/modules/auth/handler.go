@@ -29,10 +29,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Email = strings.TrimSpace(req.Email)
+	req.Username = strings.TrimSpace(req.Username)
 	errorsMap := map[string][]string{}
-	if req.Email == "" {
-		errorsMap["email"] = []string{"Email wajib diisi"}
+	if req.Username == "" {
+		errorsMap["username"] = []string{"Username wajib diisi"}
 	}
 	if req.Password == "" {
 		errorsMap["password"] = []string{"Password wajib diisi"}
@@ -52,13 +52,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		if uid == "" {
 			userID = nil
 		}
-		database.RecordAudit(r.Context(), h.Service.DB, userID, "Authentication", "Gagal Login", "Percobaan login gagal untuk "+req.Email, nil, nil)
+		database.RecordAudit(r.Context(), h.Service.DB, userID, "Authentication", "Gagal Login", "Percobaan login gagal untuk "+req.Username, nil, nil)
 
 		switch {
 		case errors.Is(err, ErrInactiveAccount):
 			response.Error(w, http.StatusForbidden, err.Error())
 		case errors.Is(err, ErrInvalidCredentials):
-			response.Error(w, http.StatusUnauthorized, "Email atau password tidak valid.")
+			response.Error(w, http.StatusUnauthorized, "Username atau password tidak valid.")
 		default:
 			response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		}
@@ -110,8 +110,7 @@ func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
 
 	var u User
 	u.ID = dbUser.ID
-	u.Nama = dbUser.Nama
-	u.Email = dbUser.Email
+	u.Username = dbUser.Username
 	u.NomorHP = dbUser.NomorHP
 	u.Jabatan = dbUser.Jabatan
 	u.RoleID = dbUser.RoleID

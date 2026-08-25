@@ -37,8 +37,7 @@ func (RolePermission) TableName() string { return "role_permissions" }
 
 type User struct {
 	ID        string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Nama      string         `gorm:"type:varchar(150)" json:"nama"`
-	Email     string         `gorm:"type:varchar(150);uniqueIndex" json:"email"`
+	Username  string         `gorm:"type:varchar(50);uniqueIndex" json:"username"`
 	Password  string         `gorm:"type:varchar(255)" json:"-"`
 	NomorHP   *string        `gorm:"type:varchar(20)" json:"nomor_hp,omitempty"`
 	Jabatan   *string        `gorm:"type:varchar(100)" json:"jabatan,omitempty"`

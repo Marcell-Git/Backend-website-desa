@@ -24,7 +24,7 @@ func (h *Handler) ListKas(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_kas k").
-		Select("k.*, u.nama as nama_user").
+		Select("k.*, u.username as nama_user").
 		Joins("LEFT JOIN users u ON u.id = k.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("k.deleted_at IS NULL")
 
@@ -94,7 +94,7 @@ func (h *Handler) GetKas(w http.ResponseWriter, r *http.Request) {
 	var item kasDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("rekap_kas k").
-		Select("k.*, u.nama as nama_user").
+		Select("k.*, u.username as nama_user").
 		Joins("LEFT JOIN users u ON u.id = k.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("k.id = ? AND k.deleted_at IS NULL", id).
 		Scan(&item).Error

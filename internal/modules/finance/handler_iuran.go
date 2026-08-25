@@ -26,7 +26,7 @@ func (h *Handler) ListIuran(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_iuran i").
-		Select("i.*, ji.nama as nama_jenis_iuran, u.nama as nama_user").
+		Select("i.*, ji.nama as nama_jenis_iuran, u.username as nama_user").
 		Joins("LEFT JOIN jenis_iuran ji ON ji.id = i.jenis_iuran_id AND ji.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = i.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("i.deleted_at IS NULL")
@@ -105,7 +105,7 @@ func (h *Handler) GetIuran(w http.ResponseWriter, r *http.Request) {
 	var item iuranDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("rekap_iuran i").
-		Select("i.*, ji.nama as nama_jenis_iuran, u.nama as nama_user").
+		Select("i.*, ji.nama as nama_jenis_iuran, u.username as nama_user").
 		Joins("LEFT JOIN jenis_iuran ji ON ji.id = i.jenis_iuran_id AND ji.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = i.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("i.id = ? AND i.deleted_at IS NULL", id).

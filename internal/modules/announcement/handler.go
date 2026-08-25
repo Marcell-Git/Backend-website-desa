@@ -48,7 +48,7 @@ func (h *Handler) ListPengumuman(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("pengumuman p").
-		Select("p.*, u.nama as nama_user").
+		Select("p.*, u.username as nama_user").
 		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("p.deleted_at IS NULL")
 
@@ -124,7 +124,7 @@ func (h *Handler) GetPengumuman(w http.ResponseWriter, r *http.Request) {
 	var item pengumumanDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("pengumuman p").
-		Select("p.*, u.nama as nama_user").
+		Select("p.*, u.username as nama_user").
 		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("p.id = ? AND p.deleted_at IS NULL", id).
 		Scan(&item).Error
@@ -279,7 +279,7 @@ func (h *Handler) ListPublished(w http.ResponseWriter, r *http.Request) {
 
 	query := h.DB.WithContext(r.Context()).
 		Table("pengumuman p").
-		Select("p.id, p.judul, p.isi, p.tanggal_publikasi, p.status, u.nama as nama_user, p.created_at").
+		Select("p.id, p.judul, p.isi, p.tanggal_publikasi, p.status, u.username as nama_user, p.created_at").
 		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("p.deleted_at IS NULL AND p.status = 'published'").
 		Order("p.tanggal_publikasi DESC")
@@ -313,7 +313,7 @@ func (h *Handler) GetPublishedDetail(w http.ResponseWriter, r *http.Request) {
 	var item PengumumanPublikDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("pengumuman p").
-		Select("p.id, p.judul, p.isi, p.tanggal_publikasi, u.nama as nama_user, p.created_at").
+		Select("p.id, p.judul, p.isi, p.tanggal_publikasi, u.username as nama_user, p.created_at").
 		Joins("LEFT JOIN users u ON u.id = p.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("p.id = ? AND p.deleted_at IS NULL AND p.status = 'published'", id).
 		Scan(&item).Error

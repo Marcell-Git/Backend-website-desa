@@ -84,7 +84,6 @@ type geminiContent struct {
 }
 
 type geminiGenerationConfig struct {
-	Temperature     float64         `json:"temperature"`
 	MaxOutputTokens int32           `json:"maxOutputTokens"`
 	ResponseMIME    string          `json:"responseMimeType"`
 	ResponseSchema  json.RawMessage `json:"responseSchema"`
@@ -356,7 +355,6 @@ func (h *OCRHandler) callGeminiJSON(r *http.Request, mimeType string, image []by
 			},
 		}},
 		GenerationConfig: geminiGenerationConfig{
-			Temperature:     0,
 			MaxOutputTokens: 8192,
 			ResponseMIME:    "application/json",
 			ResponseSchema:  schema,

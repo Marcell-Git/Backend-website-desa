@@ -93,16 +93,24 @@ func (d *Database) Seed() error {
 	db.Model(&WebsiteSettings{}).Count(&settingsCount)
 	if settingsCount == 0 {
 		settings := WebsiteSettings{
-			NamaWebsite:    "SIM RT Tegalyoso 26",
-			NamaRT:         "RT 26",
-			Desa:           "Tegalyoso",
-			Kecamatan:      "Klaten Selatan",
-			Kabupaten:      "Klaten",
-			Provinsi:       "Jawa Tengah",
-			Copyright:      "© 2026 RT 26 Kel. Tegalyoso",
+			NamaWebsite: "SIM RT Tegalyoso 26",
+			NamaRT:      "RT 26",
+			Desa:        "Tegalyoso",
+			Kecamatan:   "Klaten Selatan",
+			Kabupaten:   "Klaten",
+			Provinsi:    "Jawa Tengah",
+			Copyright:   "© 2026 RT 26 Kel. Tegalyoso",
+			Visi:        "Terwujudnya lingkungan RT 26 yang rukun, aman, peduli, dan sejahtera melalui gotong royong serta pelayanan warga yang transparan.",
+			Misi: StringList{
+				"Memperkuat kerukunan warga melalui kegiatan gotong royong dan silaturahmi.",
+				"Meningkatkan keamanan dan kepedulian terhadap lingkungan.",
+				"Menyediakan pelayanan warga yang cepat, terbuka, dan bertanggung jawab.",
+				"Mendorong partisipasi warga dalam setiap kegiatan RT.",
+			},
 			ShowPengumuman: true,
 			ShowLaporan:    true,
 			ShowPengaduan:  true,
+			ShowVisiMisi:   true,
 		}
 		if err := db.Create(&settings).Error; err != nil {
 			return fmt.Errorf("gagal seed website settings: %w", err)

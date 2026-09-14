@@ -39,21 +39,24 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := WebsiteSettingsResponse{
-		ID:              s.ID,
-		NamaWebsite:     s.NamaWebsite,
-		NamaRT:          s.NamaRT,
-		Desa:            s.Desa,
-		Kecamatan:       s.Kecamatan,
-		Kabupaten:       s.Kabupaten,
-		Provinsi:        s.Provinsi,
-		Telepon:         s.Telepon,
-		Email:           s.Email,
-		Alamat:          s.Alamat,
-		LogoPath:        s.LogoPath,
-		Copyright:       s.Copyright,
-		ShowPengumuman:  s.ShowPengumuman,
-		ShowLaporan:     s.ShowLaporan,
-		ShowPengaduan:   s.ShowPengaduan,
+		ID:             s.ID,
+		NamaWebsite:    s.NamaWebsite,
+		NamaRT:         s.NamaRT,
+		Desa:           s.Desa,
+		Kecamatan:      s.Kecamatan,
+		Kabupaten:      s.Kabupaten,
+		Provinsi:       s.Provinsi,
+		Telepon:        s.Telepon,
+		Email:          s.Email,
+		Alamat:         s.Alamat,
+		LogoPath:       s.LogoPath,
+		Copyright:      s.Copyright,
+		Visi:           s.Visi,
+		Misi:           []string(s.Misi),
+		ShowPengumuman: s.ShowPengumuman,
+		ShowLaporan:    s.ShowLaporan,
+		ShowPengaduan:  s.ShowPengaduan,
+		ShowVisiMisi:   s.ShowVisiMisi,
 	}
 	response.Success(w, http.StatusOK, "Pengaturan website", resp)
 }
@@ -102,6 +105,18 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if req.Copyright != nil {
 		updates["copyright"] = strings.TrimSpace(*req.Copyright)
 	}
+	if req.Visi != nil {
+		updates["visi"] = strings.TrimSpace(*req.Visi)
+	}
+	if req.Misi != nil {
+		misi := make(database.StringList, 0, len(*req.Misi))
+		for _, item := range *req.Misi {
+			if item = strings.TrimSpace(item); item != "" {
+				misi = append(misi, item)
+			}
+		}
+		updates["misi"] = misi
+	}
 	if req.ShowPengumuman != nil {
 		updates["show_pengumuman"] = *req.ShowPengumuman
 	}
@@ -110,6 +125,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ShowPengaduan != nil {
 		updates["show_pengaduan"] = *req.ShowPengaduan
+	}
+	if req.ShowVisiMisi != nil {
+		updates["show_visi_misi"] = *req.ShowVisiMisi
 	}
 
 	result := h.DB.WithContext(r.Context()).Model(&s).Updates(updates)

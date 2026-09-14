@@ -34,6 +34,9 @@ func Connect(databaseURL string) (*Database, error) {
 }
 
 func (d *Database) RunMigrations() error {
+	hadVisi := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "visi")
+	hadMisi := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "misi")
+	hadShowVisiMisi := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "show_visi_misi")
 	err := d.DB.AutoMigrate(
 		&Role{},
 		&Permission{},
@@ -57,6 +60,28 @@ func (d *Database) RunMigrations() error {
 	)
 	if err != nil {
 		return fmt.Errorf("gagal menjalankan migrasi: %w", err)
+	}
+	if !hadVisi || !hadMisi || !hadShowVisiMisi {
+		updates := map[string]interface{}{}
+		if !hadVisi {
+			updates["visi"] = "Terwujudnya lingkungan RT 26 yang rukun, aman, peduli, dan sejahtera melalui gotong royong serta pelayanan warga yang transparan."
+		}
+		if !hadMisi {
+			updates["misi"] = StringList{
+				"Memperkuat kerukunan warga melalui kegiatan gotong royong dan silaturahmi.",
+				"Meningkatkan keamanan dan kepedulian terhadap lingkungan.",
+				"Menyediakan pelayanan warga yang cepat, terbuka, dan bertanggung jawab.",
+				"Mendorong partisipasi warga dalam setiap kegiatan RT.",
+			}
+		}
+		if !hadShowVisiMisi {
+			updates["show_visi_misi"] = true
+		}
+		if len(updates) > 0 {
+			if err := d.DB.Model(&WebsiteSettings{}).Where("1 = 1").Updates(updates).Error; err != nil {
+				return fmt.Errorf("gagal mengisi pengaturan visi dan misi: %w", err)
+			}
+		}
 	}
 
 	if err := d.DB.Exec(`ALTER TABLE users DROP COLUMN IF EXISTS email`).Error; err != nil {

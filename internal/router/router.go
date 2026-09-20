@@ -14,6 +14,7 @@ import (
 	"rt26/backend/internal/modules/auditlog"
 	"rt26/backend/internal/modules/auth"
 	"rt26/backend/internal/modules/backup"
+	"rt26/backend/internal/modules/beritakegiatan"
 	"rt26/backend/internal/modules/dashboard"
 	"rt26/backend/internal/modules/finance"
 	"rt26/backend/internal/modules/masterdata"
@@ -42,6 +43,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	ocrHandler := masterdata.NewOCRHandler(cfg.GeminiAPIKey, cfg.GeminiModel)
 	financeHandler := finance.NewHandler(db)
 	announcementHandler := announcement.NewHandler(db)
+	beritaKegiatanHandler := beritakegiatan.NewHandler(db)
 	pengaduanHandler := pengaduan.NewHandler(db)
 	auditLogHandler := auditlog.NewHandler(db)
 	reportHandler := report.NewHandler(db)
@@ -63,6 +65,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Post("/auth/refresh", authHandler.Refresh)
 		r.Get("/public/pengumuman", announcementHandler.ListPublished)
 		r.Get("/public/pengumuman/{id}", announcementHandler.GetPublishedDetail)
+		r.Get("/public/berita-kegiatan", beritaKegiatanHandler.ListPublic)
 		r.Get("/public/laporan", reportHandler.PublicLaporan)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
 		r.Get("/website-settings", settingsHandler.GetSettings)
@@ -152,6 +155,15 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				r.With(middleware.RequirePermission("pengumuman", "view")).Get("/{id}", announcementHandler.GetPengumuman)
 				r.With(middleware.RequirePermission("pengumuman", "update")).Put("/{id}", announcementHandler.UpdatePengumuman)
 				r.With(middleware.RequirePermission("pengumuman", "delete")).Delete("/{id}", announcementHandler.DeletePengumuman)
+			})
+
+			// berita dan kegiatan
+			r.Route("/berita-kegiatan", func(r chi.Router) {
+				r.With(middleware.RequirePermission("berita-kegiatan", "view")).Get("/", beritaKegiatanHandler.List)
+				r.With(middleware.RequirePermission("berita-kegiatan", "create")).Post("/", beritaKegiatanHandler.Create)
+				r.With(middleware.RequirePermission("berita-kegiatan", "view")).Get("/{id}", beritaKegiatanHandler.Get)
+				r.With(middleware.RequirePermission("berita-kegiatan", "update")).Put("/{id}", beritaKegiatanHandler.Update)
+				r.With(middleware.RequirePermission("berita-kegiatan", "delete")).Delete("/{id}", beritaKegiatanHandler.Delete)
 			})
 
 			r.Route("/pengaduan", func(r chi.Router) {

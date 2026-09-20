@@ -278,6 +278,23 @@ type WebsiteSettings struct {
 
 func (WebsiteSettings) TableName() string { return "website_settings" }
 
+type BeritaKegiatan struct {
+	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Kategori   string         `gorm:"type:varchar(50);not null" json:"kategori"`
+	WarnaLabel string         `gorm:"type:varchar(7);not null;default:'#047857'" json:"warna_label"`
+	Judul      string         `gorm:"type:varchar(250);not null" json:"judul"`
+	Tanggal    time.Time      `gorm:"type:date;not null" json:"tanggal"`
+	Jam        string         `gorm:"type:varchar(5);not null" json:"jam"`
+	Lokasi     string         `gorm:"type:varchar(250);not null" json:"lokasi"`
+	Keterangan string         `gorm:"type:text" json:"keterangan"`
+	DibuatOleh string         `gorm:"type:uuid;not null" json:"dibuat_oleh"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (BeritaKegiatan) TableName() string { return "berita_kegiatan" }
+
 type Backup struct {
 	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	Filename   string         `gorm:"type:varchar(255);uniqueIndex" json:"nama_file"`

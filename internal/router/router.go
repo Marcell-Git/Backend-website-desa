@@ -17,6 +17,7 @@ import (
 	"rt26/backend/internal/modules/beritakegiatan"
 	"rt26/backend/internal/modules/dashboard"
 	"rt26/backend/internal/modules/finance"
+	"rt26/backend/internal/modules/inventaris"
 	"rt26/backend/internal/modules/masterdata"
 	"rt26/backend/internal/modules/pengaduan"
 	"rt26/backend/internal/modules/report"
@@ -44,6 +45,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	financeHandler := finance.NewHandler(db)
 	announcementHandler := announcement.NewHandler(db)
 	beritaKegiatanHandler := beritakegiatan.NewHandler(db)
+	inventarisHandler := inventaris.NewHandler(db, dir)
 	pengaduanHandler := pengaduan.NewHandler(db)
 	auditLogHandler := auditlog.NewHandler(db)
 	reportHandler := report.NewHandler(db)
@@ -54,6 +56,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	loginLimiter := middleware.NewLoginRateLimiter()
 
 	r.Handle("/uploads/settings/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
+	r.Handle("/uploads/inventaris/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +69,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Get("/public/pengumuman", announcementHandler.ListPublished)
 		r.Get("/public/pengumuman/{id}", announcementHandler.GetPublishedDetail)
 		r.Get("/public/berita-kegiatan", beritaKegiatanHandler.ListPublic)
+		r.Get("/public/inventaris", inventarisHandler.ListPublic)
 		r.Get("/public/laporan", reportHandler.PublicLaporan)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
 		r.Get("/website-settings", settingsHandler.GetSettings)
@@ -164,6 +168,15 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				r.With(middleware.RequirePermission("berita-kegiatan", "view")).Get("/{id}", beritaKegiatanHandler.Get)
 				r.With(middleware.RequirePermission("berita-kegiatan", "update")).Put("/{id}", beritaKegiatanHandler.Update)
 				r.With(middleware.RequirePermission("berita-kegiatan", "delete")).Delete("/{id}", beritaKegiatanHandler.Delete)
+			})
+
+			// inventaris
+			r.Route("/inventaris", func(r chi.Router) {
+				r.With(middleware.RequirePermission("inventaris", "view")).Get("/", inventarisHandler.List)
+				r.With(middleware.RequirePermission("inventaris", "create")).Post("/", inventarisHandler.Create)
+				r.With(middleware.RequirePermission("inventaris", "view")).Get("/{id}", inventarisHandler.Get)
+				r.With(middleware.RequirePermission("inventaris", "update")).Put("/{id}", inventarisHandler.Update)
+				r.With(middleware.RequirePermission("inventaris", "delete")).Delete("/{id}", inventarisHandler.Delete)
 			})
 
 			r.Route("/pengaduan", func(r chi.Router) {

@@ -57,6 +57,7 @@ func (d *Database) RunMigrations() error {
 		&PengaduanRiwayat{},
 		&WebsiteSettings{},
 		&BeritaKegiatan{},
+		&Inventaris{},
 		&Backup{},
 	)
 	if err != nil {

@@ -72,6 +72,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Get("/public/inventaris", inventarisHandler.ListPublic)
 		r.Get("/public/laporan", reportHandler.PublicLaporan)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
+		r.Post("/public/anak-kos", masterdataHandler.CreateAnakKos)
 		r.Get("/website-settings", settingsHandler.GetSettings)
 
 		// protected

@@ -210,6 +210,19 @@ type Pengumuman struct {
 
 func (Pengumuman) TableName() string { return "pengumuman" }
 
+type Pengurus struct {
+	ID          string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	NamaLengkap string         `gorm:"type:varchar(150);not null" json:"nama_lengkap"`
+	Jabatan     string         `gorm:"type:varchar(100);not null" json:"jabatan"`
+	Foto        *string        `gorm:"type:varchar(255)" json:"foto,omitempty"`
+	Urutan      int            `gorm:"default:0" json:"urutan"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Pengurus) TableName() string { return "pengurus" }
+
 type AnakKos struct {
 	ID           string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	NIK          string         `gorm:"type:varchar(16);uniqueIndex" json:"nik"`

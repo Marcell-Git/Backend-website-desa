@@ -51,6 +51,7 @@ func (d *Database) RunMigrations() error {
 		&RekapIuran{},
 		&RekapPengeluaran{},
 		&Pengumuman{},
+		&Pengurus{},
 		&AnakKos{},
 		&AuditLog{},
 		&Pengaduan{},

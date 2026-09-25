@@ -20,6 +20,7 @@ import (
 	"rt26/backend/internal/modules/inventaris"
 	"rt26/backend/internal/modules/masterdata"
 	"rt26/backend/internal/modules/pengaduan"
+	"rt26/backend/internal/modules/pengurus"
 	"rt26/backend/internal/modules/report"
 	"rt26/backend/internal/modules/settings"
 	"rt26/backend/internal/modules/user"
@@ -47,6 +48,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	beritaKegiatanHandler := beritakegiatan.NewHandler(db)
 	inventarisHandler := inventaris.NewHandler(db, dir)
 	pengaduanHandler := pengaduan.NewHandler(db)
+	pengurusHandler := pengurus.NewHandler(db, dir)
 	auditLogHandler := auditlog.NewHandler(db)
 	reportHandler := report.NewHandler(db)
 	exportHandler := report.NewExportHandler(db)
@@ -57,6 +59,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 
 	r.Handle("/uploads/settings/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 	r.Handle("/uploads/inventaris/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
+	r.Handle("/uploads/pengurus/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +73,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Get("/public/pengumuman/{id}", announcementHandler.GetPublishedDetail)
 		r.Get("/public/berita-kegiatan", beritaKegiatanHandler.ListPublic)
 		r.Get("/public/inventaris", inventarisHandler.ListPublic)
+		r.Get("/public/pengurus", pengurusHandler.ListPublic)
 		r.Get("/public/laporan", reportHandler.PublicLaporan)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
 		r.Post("/public/anak-kos", masterdataHandler.CreateAnakKos)
@@ -187,6 +191,17 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				r.With(middleware.RequirePermission("pengaduan", "update")).Post("/{id}/catatan", pengaduanHandler.AddCatatan)
 				r.With(middleware.RequirePermission("pengaduan", "view")).Get("/{id}/bukti", pengaduanHandler.DownloadBukti)
 				r.With(middleware.RequirePermission("pengaduan", "delete")).Delete("/{id}", pengaduanHandler.DeletePengaduan)
+			})
+
+			// pengurus
+			r.Route("/pengurus", func(r chi.Router) {
+				r.With(middleware.RequirePermission("pengurus", "view")).Get("/", pengurusHandler.List)
+				r.With(middleware.RequirePermission("pengurus", "view")).Get("/all", pengurusHandler.ListAll)
+				r.With(
+					middleware.RequirePermission("pengurus", "create"),
+					middleware.RequirePermission("pengurus", "update"),
+					middleware.RequirePermission("pengurus", "delete"),
+				).Put("/all", pengurusHandler.SaveBulk)
 			})
 
 			r.Route("/audit-logs", func(r chi.Router) {

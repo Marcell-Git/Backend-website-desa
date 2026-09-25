@@ -117,7 +117,14 @@ func (h *Handler) PublicLaporan(w http.ResponseWriter, r *http.Request) {
 
 	rekap := make([]PublicRekapBulanan, 0, 12)
 	saldo := saldoAwal
-	for bulan := 1; bulan <= 12; bulan++ {
+
+	now := waktuIndonesia()
+	bulanTerakhir := 12
+	if year >= now.Year() {
+		bulanTerakhir = int(now.Month())
+	}
+
+	for bulan := 1; bulan <= bulanTerakhir; bulan++ {
 		kas := kasPerBulan[bulan]
 		iuran := iuranPerBulan[bulan]
 		pengeluaran := pengeluaranPerBulan[bulan]

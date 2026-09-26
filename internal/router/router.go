@@ -24,6 +24,7 @@ import (
 	"rt26/backend/internal/modules/peraturan"
 	"rt26/backend/internal/modules/report"
 	"rt26/backend/internal/modules/settings"
+	"rt26/backend/internal/modules/statistik"
 	"rt26/backend/internal/modules/user"
 	"rt26/backend/internal/pkg/response"
 )
@@ -56,6 +57,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	exportHandler := report.NewExportHandler(db)
 	userHandler := user.NewHandler(db)
 	settingsHandler := settings.NewHandler(db, dir)
+	statistikHandler := statistik.NewHandler(db)
 	backupHandler := backup.NewHandler(db, cfg, dir)
 	loginLimiter := middleware.NewLoginRateLimiter()
 
@@ -79,6 +81,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Get("/public/peraturan", peraturanHandler.ListPublic)
 		r.Get("/public/pengurus", pengurusHandler.ListPublic)
 		r.Get("/public/laporan", reportHandler.PublicLaporan)
+		r.Get("/public/statistik", statistikHandler.PublicStatistik)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
 		r.Post("/public/anak-kos", masterdataHandler.CreateAnakKos)
 		r.Get("/website-settings", settingsHandler.GetSettings)

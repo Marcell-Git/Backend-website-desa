@@ -293,6 +293,7 @@ type WebsiteSettings struct {
 	ShowPengaduan  bool       `gorm:"default:true" json:"show_pengaduan"`
 	ShowVisiMisi   bool       `gorm:"default:true" json:"show_visi_misi"`
 	ShowPeraturan  bool       `gorm:"default:true" json:"show_peraturan"`
+	ShowStatistik  bool       `gorm:"default:true" json:"show_statistik"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }

@@ -37,6 +37,7 @@ func (d *Database) RunMigrations() error {
 	hadVisi := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "visi")
 	hadMisi := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "misi")
 	hadShowVisiMisi := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "show_visi_misi")
+	hadShowStatistik := d.DB.Migrator().HasColumn(&WebsiteSettings{}, "show_statistik")
 	err := d.DB.AutoMigrate(
 		&Role{},
 		&Permission{},
@@ -85,6 +86,12 @@ func (d *Database) RunMigrations() error {
 			if err := d.DB.Model(&WebsiteSettings{}).Where("1 = 1").Updates(updates).Error; err != nil {
 				return fmt.Errorf("gagal mengisi pengaturan visi dan misi: %w", err)
 			}
+		}
+	}
+
+	if !hadShowStatistik {
+		if err := d.DB.Model(&WebsiteSettings{}).Where("1 = 1").Update("show_statistik", true).Error; err != nil {
+			return fmt.Errorf("gagal mengaktifkan fitur statistik warga: %w", err)
 		}
 	}
 

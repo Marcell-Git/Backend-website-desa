@@ -127,6 +127,7 @@ func (d *Database) Seed() error {
 			ShowLaporan:    true,
 			ShowPengaduan:  true,
 			ShowVisiMisi:   true,
+			ShowStatistik:  true,
 		}
 		if err := db.Create(&settings).Error; err != nil {
 			return fmt.Errorf("gagal seed website settings: %w", err)

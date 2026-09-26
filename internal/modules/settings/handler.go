@@ -126,6 +126,7 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		ShowLaporan:    s.ShowLaporan,
 		ShowPengaduan:  s.ShowPengaduan,
 		ShowVisiMisi:   s.ShowVisiMisi,
+		ShowPeraturan:  s.ShowPeraturan,
 	}
 	response.Success(w, http.StatusOK, "Pengaturan website", resp)
 }
@@ -197,6 +198,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ShowVisiMisi != nil {
 		updates["show_visi_misi"] = *req.ShowVisiMisi
+	}
+	if req.ShowPeraturan != nil {
+		updates["show_peraturan"] = *req.ShowPeraturan
 	}
 
 	socialErrs := map[string][]string{}

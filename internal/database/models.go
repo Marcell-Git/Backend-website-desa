@@ -292,6 +292,7 @@ type WebsiteSettings struct {
 	ShowLaporan    bool       `gorm:"default:true" json:"show_laporan"`
 	ShowPengaduan  bool       `gorm:"default:true" json:"show_pengaduan"`
 	ShowVisiMisi   bool       `gorm:"default:true" json:"show_visi_misi"`
+	ShowPeraturan  bool       `gorm:"default:true" json:"show_peraturan"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
@@ -334,6 +335,18 @@ type Inventaris struct {
 }
 
 func (Inventaris) TableName() string { return "inventaris" }
+
+type Peraturan struct {
+	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Judul      string         `gorm:"type:varchar(200);not null" json:"judul"`
+	FilePDF    string         `gorm:"type:varchar(255);not null" json:"file_pdf"`
+	DibuatOleh string         `gorm:"type:uuid;not null" json:"dibuat_oleh"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Peraturan) TableName() string { return "peraturan" }
 
 type Backup struct {
 	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`

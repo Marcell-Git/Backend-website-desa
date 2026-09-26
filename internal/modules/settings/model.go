@@ -51,6 +51,7 @@ type WebsiteSettingsResponse struct {
 	ShowLaporan    bool     `json:"show_laporan"`
 	ShowPengaduan  bool     `json:"show_pengaduan"`
 	ShowVisiMisi   bool     `json:"show_visi_misi"`
+	ShowPeraturan  bool     `json:"show_peraturan"`
 }
 
 type UpdateSettingsRequest struct {
@@ -77,4 +78,5 @@ type UpdateSettingsRequest struct {
 	ShowLaporan    *bool          `json:"show_laporan,omitempty"`
 	ShowPengaduan  *bool          `json:"show_pengaduan,omitempty"`
 	ShowVisiMisi   *bool          `json:"show_visi_misi,omitempty"`
+	ShowPeraturan  *bool          `json:"show_peraturan,omitempty"`
 }

@@ -21,6 +21,7 @@ import (
 	"rt26/backend/internal/modules/masterdata"
 	"rt26/backend/internal/modules/pengaduan"
 	"rt26/backend/internal/modules/pengurus"
+	"rt26/backend/internal/modules/peraturan"
 	"rt26/backend/internal/modules/report"
 	"rt26/backend/internal/modules/settings"
 	"rt26/backend/internal/modules/user"
@@ -47,6 +48,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	announcementHandler := announcement.NewHandler(db)
 	beritaKegiatanHandler := beritakegiatan.NewHandler(db)
 	inventarisHandler := inventaris.NewHandler(db, dir)
+	peraturanHandler := peraturan.NewHandler(db, dir)
 	pengaduanHandler := pengaduan.NewHandler(db)
 	pengurusHandler := pengurus.NewHandler(db, dir)
 	auditLogHandler := auditlog.NewHandler(db)
@@ -60,6 +62,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 	r.Handle("/uploads/settings/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 	r.Handle("/uploads/inventaris/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 	r.Handle("/uploads/pengurus/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
+	r.Handle("/uploads/peraturan/*", http.StripPrefix("/uploads/", http.FileServer(noDirectoryListing{http.Dir(filepath.Join(dir, "uploads"))})))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +76,7 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 		r.Get("/public/pengumuman/{id}", announcementHandler.GetPublishedDetail)
 		r.Get("/public/berita-kegiatan", beritaKegiatanHandler.ListPublic)
 		r.Get("/public/inventaris", inventarisHandler.ListPublic)
+		r.Get("/public/peraturan", peraturanHandler.ListPublic)
 		r.Get("/public/pengurus", pengurusHandler.ListPublic)
 		r.Get("/public/laporan", reportHandler.PublicLaporan)
 		r.Post("/public/pengaduan", pengaduanHandler.SubmitPengaduan)
@@ -182,6 +186,15 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				r.With(middleware.RequirePermission("inventaris", "view")).Get("/{id}", inventarisHandler.Get)
 				r.With(middleware.RequirePermission("inventaris", "update")).Put("/{id}", inventarisHandler.Update)
 				r.With(middleware.RequirePermission("inventaris", "delete")).Delete("/{id}", inventarisHandler.Delete)
+			})
+
+			// peraturan
+			r.Route("/peraturan", func(r chi.Router) {
+				r.With(middleware.RequirePermission("peraturan", "view")).Get("/", peraturanHandler.List)
+				r.With(middleware.RequirePermission("peraturan", "create")).Post("/", peraturanHandler.Create)
+				r.With(middleware.RequirePermission("peraturan", "view")).Get("/{id}", peraturanHandler.Get)
+				r.With(middleware.RequirePermission("peraturan", "update")).Put("/{id}", peraturanHandler.Update)
+				r.With(middleware.RequirePermission("peraturan", "delete")).Delete("/{id}", peraturanHandler.Delete)
 			})
 
 			r.Route("/pengaduan", func(r chi.Router) {

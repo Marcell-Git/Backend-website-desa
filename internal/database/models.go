@@ -277,6 +277,13 @@ type WebsiteSettings struct {
 	Telepon        string     `gorm:"type:varchar(20)" json:"telepon"`
 	Email          string     `gorm:"type:varchar(150)" json:"email"`
 	Alamat         string     `gorm:"type:text" json:"alamat"`
+	MapsLat        *float64   `gorm:"type:double precision;default:-7.7122778" json:"maps_lat"`
+	MapsLng        *float64   `gorm:"type:double precision;default:110.5879722" json:"maps_lng"`
+	Facebook       string     `gorm:"type:varchar(255)" json:"facebook"`
+	Instagram      string     `gorm:"type:varchar(255)" json:"instagram"`
+	Whatsapp       string     `gorm:"type:varchar(255)" json:"whatsapp"`
+	Youtube        string     `gorm:"type:varchar(255)" json:"youtube"`
+	Tiktok         string     `gorm:"type:varchar(255)" json:"tiktok"`
 	LogoPath       string     `gorm:"type:varchar(255)" json:"logo_path"`
 	Copyright      string     `gorm:"type:varchar(200);default:'© 2026 RT 26 Kel. Tegalyoso'" json:"copyright"`
 	Visi           string     `gorm:"type:text" json:"visi"`

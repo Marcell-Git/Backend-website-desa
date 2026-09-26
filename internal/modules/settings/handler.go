@@ -3,8 +3,10 @@ package settings
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +33,66 @@ func userIDPtr(r *http.Request) *string {
 	return &uid
 }
 
+func normalizeSocialURL(label, raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", fmt.Errorf("URL %s harus diawali http:// atau https://", label)
+	}
+	return value, nil
+}
+
+type mapsFieldError struct {
+	field   string
+	message string
+}
+
+func checkCoordinate(field, label string, v *float64, limit float64) *mapsFieldError {
+	if v == nil {
+		return nil
+	}
+	if *v == 0 {
+		return &mapsFieldError{field, label + " tidak boleh 0 pada koordinat Indonesia"}
+	}
+	if *v < -limit || *v > limit {
+		return &mapsFieldError{field, fmt.Sprintf("%s harus antara %g dan %g", label, -limit, limit)}
+	}
+	return nil
+}
+
+func applyMaps(req UpdateSettingsRequest, curLat, curLng *float64, updates map[string]interface{}) *mapsFieldError {
+	lat, lng := curLat, curLng
+	if req.MapsLat != nil {
+		lat = req.MapsLat.Value
+	}
+	if req.MapsLng != nil {
+		lng = req.MapsLng.Value
+	}
+
+	if err := checkCoordinate("maps_lat", "Latitude", lat, 90); err != nil {
+		return err
+	}
+	if err := checkCoordinate("maps_lng", "Longitude", lng, 180); err != nil {
+		return err
+	}
+
+	// Salah satu diisi tanpa yang lain akan membuat peta berada di titik yang salah.
+	if (lat == nil) != (lng == nil) {
+		return &mapsFieldError{"maps_lat", "Latitude dan Longitude harus diisi bersama atau dikosongkan bersama"}
+	}
+
+	if req.MapsLat != nil {
+		updates["maps_lat"] = lat
+	}
+	if req.MapsLng != nil {
+		updates["maps_lng"] = lng
+	}
+	return nil
+}
+
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	var s database.WebsiteSettings
 	if err := h.DB.WithContext(r.Context()).First(&s).Error; err != nil {
@@ -49,6 +111,13 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		Telepon:        s.Telepon,
 		Email:          s.Email,
 		Alamat:         s.Alamat,
+		MapsLat:        s.MapsLat,
+		MapsLng:        s.MapsLng,
+		Facebook:       s.Facebook,
+		Instagram:      s.Instagram,
+		Whatsapp:       s.Whatsapp,
+		Youtube:        s.Youtube,
+		Tiktok:         s.Tiktok,
 		LogoPath:       s.LogoPath,
 		Copyright:      s.Copyright,
 		Visi:           s.Visi,
@@ -128,6 +197,39 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ShowVisiMisi != nil {
 		updates["show_visi_misi"] = *req.ShowVisiMisi
+	}
+
+	socialErrs := map[string][]string{}
+	for _, field := range []struct {
+		key   string
+		label string
+		value *string
+	}{
+		{"facebook", "Facebook", req.Facebook},
+		{"instagram", "Instagram", req.Instagram},
+		{"whatsapp", "WhatsApp", req.Whatsapp},
+		{"youtube", "YouTube", req.Youtube},
+		{"tiktok", "TikTok", req.Tiktok},
+	} {
+		if field.value == nil {
+			continue
+		}
+		url, err := normalizeSocialURL(field.label, *field.value)
+		if err != nil {
+			socialErrs[field.key] = []string{err.Error()}
+			continue
+		}
+		updates[field.key] = url
+	}
+	if len(socialErrs) > 0 {
+		response.ValidationError(w, socialErrs)
+		return
+	}
+
+	if err := applyMaps(req, s.MapsLat, s.MapsLng, updates); err != nil {
+		errs := map[string][]string{err.field: {err.message}}
+		response.ValidationError(w, errs)
+		return
 	}
 
 	result := h.DB.WithContext(r.Context()).Model(&s).Updates(updates)

@@ -364,6 +364,14 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cabut sesi aktif pengguna agar password baru langsung berlaku.
+	if err := h.DB.WithContext(r.Context()).Model(&database.RefreshToken{}).
+		Where("user_id = ? AND revoked_at IS NULL AND deleted_at IS NULL", id).
+		Update("revoked_at", time.Now()).Error; err != nil {
+		response.Error(w, http.StatusInternalServerError, "Password direset, tetapi gagal mencabut sesi aktif")
+		return
+	}
+
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "User Management", "Reset Password",
 		"Meriset password pengguna: "+existing.Username, nil, nil)
 	response.Success(w, http.StatusOK, "Password berhasil direset", nil)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -178,5 +179,14 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	uid := middleware.GetUserID(r)
 	database.RecordAudit(r.Context(), h.Service.DB, &uid, "Authentication", "Perubahan Password", "Pengguna mengubah password sendiri", nil, nil)
-	response.Success(w, http.StatusOK, "Password berhasil diperbarui", nil)
+
+	// Cabut semua sesi aktif agar password baru benar-benar berlaku di semua perangkat.
+	if err := h.Service.DB.WithContext(r.Context()).Model(&database.RefreshToken{}).
+		Where("user_id = ? AND revoked_at IS NULL AND deleted_at IS NULL", uid).
+		Update("revoked_at", time.Now()).Error; err != nil {
+		response.Error(w, http.StatusInternalServerError, "Password diubah, tetapi gagal mencabut sesi aktif")
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Password berhasil diperbarui. Silakan masuk kembali dengan password baru.", map[string]bool{"reauth_required": true})
 }

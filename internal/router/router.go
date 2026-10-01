@@ -274,6 +274,8 @@ func New(db *gorm.DB, cfg *config.Config, baseDir ...string) http.Handler {
 				r.With(middleware.RequirePermission("laporan", "export")).Get("/iuran/excel", exportHandler.ExportIuranExcel)
 				r.With(middleware.RequirePermission("laporan", "export")).Get("/pengeluaran/pdf", exportHandler.ExportPengeluaranPDF)
 				r.With(middleware.RequirePermission("laporan", "export")).Get("/pengeluaran/excel", exportHandler.ExportPengeluaranExcel)
+				r.With(middleware.RequirePermission("kartu-keluarga", "export")).Get("/kk/pdf", exportHandler.ExportKKPDF)
+				r.With(middleware.RequirePermission("anak-kos", "export")).Get("/anak-kos/pdf", exportHandler.ExportAnakKosPDF)
 			})
 		})
 	})

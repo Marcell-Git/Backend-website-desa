@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	maksPekerjaan   = 8
+	maksPekerjaan   = 5
 	labelKos        = "Anak Kos / Warga Kontrak"
-	labelLainnya    = "Lainnya (gabungan)"
 	labelBelumDiisi = "Belum diisi"
 )
 
@@ -41,6 +40,7 @@ type Statistik struct {
 	Gender       []Label `json:"gender"`
 	StatusKK     []Label `json:"status_kk"`
 	Pekerjaan    []Label `json:"pekerjaan"`
+	Umur         []Label `json:"umur"`
 }
 
 type jumlahRow struct {
@@ -58,6 +58,14 @@ var (
 	urutanGender = []string{"L", "P"}
 	labelGender  = map[string]string{"L": "Laki-laki", "P": "Perempuan"}
 	urutanStatus = []string{"Kepala Keluarga", "Anggota Keluarga", labelKos}
+	urutanUmur   = []string{
+		"Balita (0-4 tahun)",
+		"Anak (5-14 tahun)",
+		"Remaja (15-24 tahun)",
+		"Dewasa (25-54 tahun)",
+		"Lansia (55 tahun ke atas)",
+		labelBelumDiisi,
+	}
 )
 
 func (h *Handler) showStatistikAktif(r *http.Request) bool {
@@ -130,6 +138,7 @@ func (h *Handler) PublicStatistik(w http.ResponseWriter, r *http.Request) {
 		Gender:       []Label{},
 		StatusKK:     []Label{},
 		Pekerjaan:    []Label{},
+		Umur:         []Label{},
 	}
 
 	if totalWarga == 0 {
@@ -189,6 +198,42 @@ func (h *Handler) PublicStatistik(w http.ResponseWriter, r *http.Request) {
 	}
 	resp.StatusKK = urutLabels(hanyaYangAda(urutanStatus, countsStatus), countsStatus, totalWarga)
 
+	// Umur dihitung dari tanggal_lahir, tidak disimpan sebagai kolom. Daftar
+	// gabungan dibuat sekali lewat CTE supaya CASE batas usianya tidak perlu
+	// ditulis ulang untuk tiap tabel.
+	//
+	// Guard tanggal_lahir IS NULL wajib ada: age(CURRENT_DATE, NULL) bernilai
+	// NULL, sehingga seluruh WHEN tidak cocok dan record tanpa tanggal lahir
+	// akan ikut terhitung sebagai kelompok terakhir (Lansia).
+	var umurRows []jumlahRow
+	if err := db.Raw(`
+		WITH gabungan AS (
+			SELECT tanggal_lahir FROM anggota_keluarga WHERE deleted_at IS NULL
+			UNION ALL
+			SELECT tanggal_lahir FROM anak_kos WHERE deleted_at IS NULL
+		)
+		SELECT kelompok AS key, COUNT(*) AS jumlah
+		FROM (
+			SELECT CASE
+				WHEN tanggal_lahir IS NULL THEN '` + labelBelumDiisi + `'
+				WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 5 THEN '` + urutanUmur[0] + `'
+				WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 15 THEN '` + urutanUmur[1] + `'
+				WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 25 THEN '` + urutanUmur[2] + `'
+				WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 55 THEN '` + urutanUmur[3] + `'
+				ELSE '` + urutanUmur[4] + `'
+			END AS kelompok
+			FROM gabungan
+		) t
+		GROUP BY kelompok`).Scan(&umurRows).Error; err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal memuat statistik warga")
+		return
+	}
+	countsUmur := make(map[string]int64)
+	for _, row := range umurRows {
+		countsUmur[row.Key] += row.Jumlah
+	}
+	resp.Umur = urutLabels(hanyaYangAda(urutanUmur, countsUmur), countsUmur, totalWarga)
+
 	var pekerjaanRows []jumlahRow
 	if err := db.Raw(`
 		SELECT pekerjaan AS key, COUNT(*) AS jumlah
@@ -230,8 +275,15 @@ func (h *Handler) PublicStatistik(w http.ResponseWriter, r *http.Request) {
 		idxBucket[lower] = len(buckets)
 		buckets = append(buckets, bucketPekerjaan{Label: key, Jumlah: row.Jumlah, varian: row.Jumlah})
 	}
+	// Urutan diikat dengan nama saat jumlah sama. Tanpa itu urutan lima besar
+	// bisa berubah-ubah antar-request, karena PostgreSQL tidak menjamin urutan
+	// baris yang jumlah-nya sama, dan hanya lima teratas yang ditampilkan --
+	// jadi satu pekerjaan bisa keluar-masuk tanpa ada datanya yang berubah.
 	sort.SliceStable(buckets, func(i, j int) bool {
-		return buckets[i].Jumlah > buckets[j].Jumlah
+		if buckets[i].Jumlah != buckets[j].Jumlah {
+			return buckets[i].Jumlah > buckets[j].Jumlah
+		}
+		return buckets[i].Label < buckets[j].Label
 	})
 
 	keysPekerjaan := make([]string, 0, len(buckets))
@@ -240,21 +292,8 @@ func (h *Handler) PublicStatistik(w http.ResponseWriter, r *http.Request) {
 		keysPekerjaan = append(keysPekerjaan, b.Label)
 		countsPekerjaan[b.Label] = b.Jumlah
 	}
-
 	if len(keysPekerjaan) > maksPekerjaan {
-		gabungan := int64(0)
-		for _, b := range buckets[maksPekerjaan:] {
-			gabungan += b.Jumlah
-		}
-		ganti := labelLainnya
-		for {
-			if _, bentrok := countsPekerjaan[ganti]; !bentrok {
-				break
-			}
-			ganti += " (lanjutan)"
-		}
-		keysPekerjaan = append(keysPekerjaan[:maksPekerjaan], ganti)
-		countsPekerjaan[ganti] = gabungan
+		keysPekerjaan = keysPekerjaan[:maksPekerjaan]
 	}
 
 	resp.Pekerjaan = urutLabels(keysPekerjaan, countsPekerjaan, totalWarga)

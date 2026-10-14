@@ -97,7 +97,14 @@ func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 		database.KartuKeluarga
 		NamaKepala    *string `json:"nama_kepala_keluarga"`
 		JumlahAnggota int64   `json:"jumlah_anggota"`
+		AnggotaCocok  *string `json:"anggota_cocok,omitempty"`
 	}
+
+	// Pencarian juga mencocokkan nama/NIK seluruh anggota KK, sehingga warga
+	// yang bukan kepala keluarga tetap bisa ditemukan dari halaman ini.
+	const searchCond = `(kk.nomor_kk ILIKE ? OR a.nama_lengkap ILIKE ? OR kk.alamat ILIKE ?
+		OR EXISTS (SELECT 1 FROM anggota_keluarga ag WHERE ag.kartu_keluarga_id = kk.id
+			AND ag.deleted_at IS NULL AND (ag.nama_lengkap ILIKE ? OR ag.nik ILIKE ?)))`
 
 	query := h.DB.WithContext(r.Context()).
 		Table("kartu_keluarga kk").
@@ -107,7 +114,15 @@ func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 
 	if search != "" {
 		like := "%" + search + "%"
-		query = query.Where("(kk.nomor_kk ILIKE ? OR a.nama_lengkap ILIKE ? OR kk.alamat ILIKE ?)", like, like, like)
+		query = query.Where(searchCond, like, like, like, like, like).
+			// Nama anggota yang cocok (selain kepala keluarga) ditampilkan di
+			// daftar agar jelas kenapa KK ini muncul di hasil pencarian.
+			Select(`kk.*, a.nama_lengkap as nama_kepala,
+				(SELECT COUNT(*) FROM anggota_keluarga ag WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL) as jumlah_anggota,
+				(SELECT string_agg(ag.nama_lengkap, ', ' ORDER BY ag.nama_lengkap) FROM anggota_keluarga ag
+					WHERE ag.kartu_keluarga_id = kk.id AND ag.deleted_at IS NULL
+					AND ag.id IS DISTINCT FROM kk.kepala_keluarga_id
+					AND (ag.nama_lengkap ILIKE ? OR ag.nik ILIKE ?)) as anggota_cocok`, like, like)
 	}
 	if rtFilter != "" {
 		query = query.Where("kk.rt = ?", rtFilter)
@@ -123,7 +138,7 @@ func (h *Handler) ListKK(w http.ResponseWriter, r *http.Request) {
 		Where("kk.deleted_at IS NULL")
 	if search != "" {
 		like := "%" + search + "%"
-		countQuery = countQuery.Where("(kk.nomor_kk ILIKE ? OR a.nama_lengkap ILIKE ? OR kk.alamat ILIKE ?)", like, like, like)
+		countQuery = countQuery.Where(searchCond, like, like, like, like, like)
 	}
 	if rtFilter != "" {
 		countQuery = countQuery.Where("kk.rt = ?", rtFilter)

@@ -26,8 +26,17 @@ type Summary struct {
 	SaldoKas            float64     `json:"saldo_kas"`
 	TotalIuran          float64     `json:"total_iuran"`
 	PengeluaranBulanIni float64     `json:"pengeluaran_bulan_ini"`
+	PengaduanAktif      int64       `json:"pengaduan_aktif"`
+	DistribusiUsia      []UsiaItem  `json:"distribusi_usia"`
 	AktivitasTerbaru    []Aktivitas `json:"aktivitas_terbaru"`
 }
+
+type UsiaItem struct {
+	Kelompok string `json:"kelompok"`
+	Jumlah   int64  `json:"jumlah"`
+}
+
+var urutanUsia = []string{"Balita", "Anak", "Remaja", "Dewasa", "Lansia"}
 
 type Aktivitas struct {
 	ID        string `json:"id"`
@@ -129,6 +138,37 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	s.SaldoKas = sumColumn(h.DB, "rekap_kas", "nominal", "") +
 		sumColumn(h.DB, "rekap_iuran", "nominal", "") -
 		sumColumn(h.DB, "rekap_pengeluaran", "nominal", "")
+
+	// Pengaduan dianggap aktif selama belum berstatus selesai.
+	h.DB.WithContext(r.Context()).Model(&database.Pengaduan{}).
+		Where("deleted_at IS NULL AND status <> ?", "selesai").Count(&s.PengaduanAktif)
+
+	// Batas kelompok usia mengikuti modul statistik. Anggota tanpa tanggal
+	// lahir tidak ikut dihitung.
+	type usiaRow struct {
+		Kelompok string
+		Jumlah   int64
+	}
+	var usiaRows []usiaRow
+	h.DB.WithContext(r.Context()).Raw(`
+		SELECT CASE
+			WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 5 THEN 'Balita'
+			WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 15 THEN 'Anak'
+			WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 25 THEN 'Remaja'
+			WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, tanggal_lahir)) < 55 THEN 'Dewasa'
+			ELSE 'Lansia'
+		END AS kelompok, COUNT(*) AS jumlah
+		FROM anggota_keluarga
+		WHERE deleted_at IS NULL AND tanggal_lahir IS NOT NULL
+		GROUP BY kelompok`).Scan(&usiaRows)
+	countsUsia := make(map[string]int64, len(usiaRows))
+	for _, row := range usiaRows {
+		countsUsia[row.Kelompok] = row.Jumlah
+	}
+	s.DistribusiUsia = make([]UsiaItem, 0, len(urutanUsia))
+	for _, k := range urutanUsia {
+		s.DistribusiUsia = append(s.DistribusiUsia, UsiaItem{Kelompok: k, Jumlah: countsUsia[k]})
+	}
 
 	s.TotalIuran = sumColumn(h.DB, "rekap_iuran", "nominal", "")
 

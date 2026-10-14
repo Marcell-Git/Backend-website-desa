@@ -62,8 +62,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		count = count.Where("(nama_barang ILIKE ? OR lokasi_penyimpanan ILIKE ? OR penanggung_jawab ILIKE ? OR keterangan ILIKE ?)", like, like, like, like)
 	}
 	if kategori != "" {
-		query = query.Where("i.kategori ILIKE ?", kategori)
-		count = count.Where("kategori ILIKE ?", kategori)
+		// Cocokkan sebagian agar "kerja" menemukan "Kerja Bakti".
+		likeKategori := "%" + kategori + "%"
+		query = query.Where("i.kategori ILIKE ?", likeKategori)
+		count = count.Where("kategori ILIKE ?", likeKategori)
 	}
 	if kondisi != "" {
 		query = query.Where("i.kondisi_barang = ?", kondisi)

@@ -61,6 +61,7 @@ type anakKosCetakRow struct {
 	Agama        string  `json:"agama"`
 	Pekerjaan    *string `json:"pekerjaan"`
 	NomorHP      *string `json:"nomor_hp"`
+	AlamatKos    string  `json:"alamat_kos"`
 	AlamatAsal   string  `json:"alamat_asal"`
 	Status       bool    `json:"status"`
 }
@@ -180,7 +181,7 @@ func (h *ExportHandler) ExportAnakKosPDF(w http.ResponseWriter, r *http.Request)
 	var items []anakKosCetakRow
 	if err := h.DB.WithContext(r.Context()).
 		Table("anak_kos ak").
-		Select("ak.nik, ak.nama_lengkap, ak.jenis_kelamin, to_char(ak.tanggal_lahir, 'DD/MM/YYYY') as tanggal_lahir, ak.agama, ak.pekerjaan, ak.nomor_hp, ak.alamat_asal, ak.status").
+		Select("ak.nik, ak.nama_lengkap, ak.jenis_kelamin, to_char(ak.tanggal_lahir, 'DD/MM/YYYY') as tanggal_lahir, ak.agama, ak.pekerjaan, ak.nomor_hp, ak.alamat_kos, ak.alamat_asal, ak.status").
 		Where("ak.deleted_at IS NULL").
 		Order("ak.nama_lengkap ASC").
 		Scan(&items).Error; err != nil {
@@ -188,9 +189,9 @@ func (h *ExportHandler) ExportAnakKosPDF(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	headers := []string{"No", "NIK", "Nama Lengkap", "Jenis Kelamin", "Tgl Lahir", "Agama", "Pekerjaan", "No. HP", "Alamat Asal", "Status"}
-	widths := []float64{10, 30, 40, 24, 24, 22, 30, 28, 51, 18}
-	aligns := []string{"C", "L", "L", "C", "C", "L", "L", "L", "L", "C"}
+	headers := []string{"No", "NIK", "Nama Lengkap", "Jenis Kelamin", "Tgl Lahir", "Agama", "Pekerjaan", "No. HP", "Alamat Kos", "Alamat Asal", "Status"}
+	widths := []float64{8, 28, 34, 20, 20, 18, 24, 24, 43, 43, 15}
+	aligns := []string{"C", "L", "L", "C", "C", "L", "L", "L", "L", "L", "C"}
 
 	rows := make([][]string, 0, len(items))
 	var aktif, nonaktif int
@@ -209,6 +210,7 @@ func (h *ExportHandler) ExportAnakKosPDF(w http.ResponseWriter, r *http.Request)
 			it.Agama,
 			derefStr(it.Pekerjaan),
 			derefStr(it.NomorHP),
+			orDash(it.AlamatKos),
 			orDash(it.AlamatAsal),
 			labelStatus(it.Status),
 		})

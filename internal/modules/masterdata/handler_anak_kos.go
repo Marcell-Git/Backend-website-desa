@@ -30,6 +30,9 @@ func validateAnakKos(req CreateAnakKosRequest) []string {
 	if strings.TrimSpace(req.Agama) == "" {
 		errs = append(errs, "Agama wajib diisi")
 	}
+	if strings.TrimSpace(req.AlamatKos) == "" {
+		errs = append(errs, "Alamat kos/kontrakan wajib diisi")
+	}
 	if strings.TrimSpace(req.AlamatAsal) == "" {
 		errs = append(errs, "Alamat asal wajib diisi")
 	}
@@ -48,7 +51,7 @@ func (h *Handler) ListAnakKos(w http.ResponseWriter, r *http.Request) {
 
 	if search != "" {
 		like := "%" + search + "%"
-		query = query.Where("(nik ILIKE ? OR nama_lengkap ILIKE ? OR nomor_hp ILIKE ? OR pekerjaan ILIKE ? OR alamat_asal ILIKE ?)", like, like, like, like, like)
+		query = query.Where("(nik ILIKE ? OR nama_lengkap ILIKE ? OR nomor_hp ILIKE ? OR pekerjaan ILIKE ? OR alamat_kos ILIKE ? OR alamat_asal ILIKE ?)", like, like, like, like, like, like)
 	}
 	if jk == "L" || jk == "P" {
 		query = query.Where("jenis_kelamin = ?", jk)
@@ -133,6 +136,7 @@ func (h *Handler) CreateAnakKos(w http.ResponseWriter, r *http.Request) {
 		Agama:        req.Agama,
 		Pekerjaan:    req.Pekerjaan,
 		NomorHP:      req.NomorHP,
+		AlamatKos:    req.AlamatKos,
 		AlamatAsal:   req.AlamatAsal,
 		Status:       status,
 	}
@@ -166,6 +170,9 @@ func (h *Handler) UpdateAnakKos(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(req.Agama) == "" {
 		errs["agama"] = []string{"Agama wajib diisi"}
 	}
+	if strings.TrimSpace(req.AlamatKos) == "" {
+		errs["alamat_kos"] = []string{"Alamat kos/kontrakan wajib diisi"}
+	}
 	if strings.TrimSpace(req.AlamatAsal) == "" {
 		errs["alamat_asal"] = []string{"Alamat asal wajib diisi"}
 	}
@@ -196,6 +203,7 @@ func (h *Handler) UpdateAnakKos(w http.ResponseWriter, r *http.Request) {
 		"agama":         req.Agama,
 		"pekerjaan":     req.Pekerjaan,
 		"nomor_hp":      req.NomorHP,
+		"alamat_kos":    req.AlamatKos,
 		"alamat_asal":   req.AlamatAsal,
 		"status":        status,
 	}

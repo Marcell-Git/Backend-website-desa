@@ -54,6 +54,7 @@ type AnakKos struct {
 	Agama        string         `gorm:"type:varchar(30)" json:"agama"`
 	Pekerjaan    *string        `gorm:"type:varchar(100)" json:"pekerjaan,omitempty"`
 	NomorHP      *string        `gorm:"type:varchar(20)" json:"nomor_hp,omitempty"`
+	AlamatKos    string         `gorm:"type:text;not null;default:''" json:"alamat_kos"`
 	AlamatAsal   string         `gorm:"type:text" json:"alamat_asal"`
 	Status       bool           `gorm:"default:true" json:"status"`
 	CreatedAt    time.Time      `json:"created_at"`

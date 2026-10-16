@@ -105,6 +105,7 @@ type AnakKosData struct {
 	Agama         string    `json:"agama"`
 	Pekerjaan     *string   `json:"pekerjaan,omitempty"`
 	NomorHP       *string   `json:"nomor_hp,omitempty"`
+	AlamatKos     string    `json:"alamat_kos"`
 	AlamatAsal    string    `json:"alamat_asal"`
 	Status        bool      `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -119,6 +120,7 @@ type CreateAnakKosRequest struct {
 	Agama        string  `json:"agama"`
 	Pekerjaan    *string `json:"pekerjaan"`
 	NomorHP      *string `json:"nomor_hp"`
+	AlamatKos    string  `json:"alamat_kos"`
 	AlamatAsal   string  `json:"alamat_asal"`
 	Status       *bool   `json:"status"`
 }
@@ -129,6 +131,7 @@ type UpdateAnakKosRequest struct {
 	Agama        string  `json:"agama"`
 	Pekerjaan    *string `json:"pekerjaan"`
 	NomorHP      *string `json:"nomor_hp"`
+	AlamatKos    string  `json:"alamat_kos"`
 	AlamatAsal   string  `json:"alamat_asal"`
 	Status       *bool   `json:"status"`
 }

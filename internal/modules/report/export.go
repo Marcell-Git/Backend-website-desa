@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 
 	"rt26/backend/internal/pkg/response"
+
+	"rt26/backend/internal/pkg/helper"
 )
 
 type ExportHandler struct {
@@ -35,7 +37,7 @@ func (h *ExportHandler) ExportKasPDF(w http.ResponseWriter, r *http.Request) {
 	for _, it := range items {
 		total += it.nominal()
 		rows = append(rows, []string{
-			it.Tanggal.Format("02/01/2006"),
+			helper.FormatTanggal(it.Tanggal),
 			it.SumberKas,
 			formatRupiah(it.Nominal),
 			derefStr(it.Keterangan),
@@ -72,7 +74,7 @@ func (h *ExportHandler) ExportKasExcel(w http.ResponseWriter, r *http.Request) {
 	for _, it := range items {
 		total += it.nominal()
 		rows = append(rows, []string{
-			it.Tanggal.Format("02/01/2006"),
+			helper.FormatTanggal(it.Tanggal),
 			it.SumberKas,
 			formatRupiah(it.Nominal),
 			derefStr(it.Keterangan),
@@ -114,7 +116,7 @@ func (h *ExportHandler) ExportIuranPDF(w http.ResponseWriter, r *http.Request) {
 	for _, it := range items {
 		total += it.Nominal
 		rows = append(rows, []string{
-			it.Tanggal.Format("02/01/2006"),
+			helper.FormatTanggal(it.Tanggal),
 			it.JenisIuran,
 			formatRupiah(it.Nominal),
 			derefStr(it.Keterangan),
@@ -156,7 +158,7 @@ func (h *ExportHandler) ExportIuranExcel(w http.ResponseWriter, r *http.Request)
 	for _, it := range items {
 		total += it.Nominal
 		rows = append(rows, []string{
-			it.Tanggal.Format("02/01/2006"),
+			helper.FormatTanggal(it.Tanggal),
 			it.JenisIuran,
 			formatRupiah(it.Nominal),
 			derefStr(it.Keterangan),
@@ -198,7 +200,7 @@ func (h *ExportHandler) ExportPengeluaranPDF(w http.ResponseWriter, r *http.Requ
 	for _, it := range items {
 		total += it.Nominal
 		rows = append(rows, []string{
-			it.Tanggal.Format("02/01/2006"),
+			helper.FormatTanggal(it.Tanggal),
 			it.KategoriPengeluaran,
 			formatRupiah(it.Nominal),
 			derefStr(it.Keterangan),
@@ -240,7 +242,7 @@ func (h *ExportHandler) ExportPengeluaranExcel(w http.ResponseWriter, r *http.Re
 	for _, it := range items {
 		total += it.Nominal
 		rows = append(rows, []string{
-			it.Tanggal.Format("02/01/2006"),
+			helper.FormatTanggal(it.Tanggal),
 			it.KategoriPengeluaran,
 			formatRupiah(it.Nominal),
 			derefStr(it.Keterangan),

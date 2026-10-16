@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
+
+	"rt26/backend/internal/pkg/helper"
 )
 
 func generatePDF(title string, headers []string, rows [][]string, summary string) ([]byte, error) {
@@ -84,7 +86,7 @@ func generatePDF(title string, headers []string, rows [][]string, summary string
 
 	pdf.Ln(8)
 	pdf.SetFont("Helvetica", "I", 8)
-	now := time.Now().Format("02 January 2006 15:04")
+	now := helper.FormatTanggalWaktu(time.Now())
 	pdf.CellFormat(0, 5, fmt.Sprintf("Dicetak pada: %s", now), "", 1, "R", false, 0, "")
 
 	var buf bytes.Buffer

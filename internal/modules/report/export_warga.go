@@ -10,6 +10,8 @@ import (
 	"rt26/backend/internal/database"
 	"rt26/backend/internal/middleware"
 	"rt26/backend/internal/pkg/response"
+
+	"rt26/backend/internal/pkg/helper"
 )
 
 type kkCetakRow struct {
@@ -45,7 +47,7 @@ func (a anggotaCetakRow) toCells() []string {
 		orDash(a.NIK),
 		labelJenisKelamin(a.JenisKelamin),
 		orDash(a.TempatLahir),
-		orDash(a.TanggalLahir),
+		orDash(helper.FormatTanggalISO(a.TanggalLahir)),
 		orDash(a.Agama),
 		derefStr(a.Pekerjaan),
 		orDash(a.HubunganKeluarga),
@@ -125,7 +127,7 @@ func (h *ExportHandler) ExportKKPDF(w http.ResponseWriter, r *http.Request) {
 	if err := db.
 		Table("anggota_keluarga ag").
 		Select(`ag.kartu_keluarga_id, ag.nik, ag.nama_lengkap, ag.jenis_kelamin, ag.tempat_lahir,
-			to_char(ag.tanggal_lahir, 'DD/MM/YYYY') as tanggal_lahir, ag.agama, ag.pekerjaan, ag.hubungan_keluarga, ag.status`).
+			to_char(ag.tanggal_lahir, 'YYYY-MM-DD') as tanggal_lahir, ag.agama, ag.pekerjaan, ag.hubungan_keluarga, ag.status`).
 		Where("ag.deleted_at IS NULL").
 		Order("ag.kartu_keluarga_id ASC, (ag.hubungan_keluarga = 'Kepala Keluarga') DESC, ag.nama_lengkap ASC").
 		Scan(&anggota).Error; err != nil {
@@ -181,7 +183,7 @@ func (h *ExportHandler) ExportAnakKosPDF(w http.ResponseWriter, r *http.Request)
 	var items []anakKosCetakRow
 	if err := h.DB.WithContext(r.Context()).
 		Table("anak_kos ak").
-		Select("ak.nik, ak.nama_lengkap, ak.jenis_kelamin, to_char(ak.tanggal_lahir, 'DD/MM/YYYY') as tanggal_lahir, ak.agama, ak.pekerjaan, ak.nomor_hp, ak.alamat_kos, ak.alamat_asal, ak.status").
+		Select("ak.nik, ak.nama_lengkap, ak.jenis_kelamin, to_char(ak.tanggal_lahir, 'YYYY-MM-DD') as tanggal_lahir, ak.agama, ak.pekerjaan, ak.nomor_hp, ak.alamat_kos, ak.alamat_asal, ak.status").
 		Where("ak.deleted_at IS NULL").
 		Order("ak.nama_lengkap ASC").
 		Scan(&items).Error; err != nil {
@@ -206,7 +208,7 @@ func (h *ExportHandler) ExportAnakKosPDF(w http.ResponseWriter, r *http.Request)
 			it.NIK,
 			it.NamaLengkap,
 			labelJenisKelamin(it.JenisKelamin),
-			orDash(it.TanggalLahir),
+			orDash(helper.FormatTanggalISO(it.TanggalLahir)),
 			it.Agama,
 			derefStr(it.Pekerjaan),
 			derefStr(it.NomorHP),

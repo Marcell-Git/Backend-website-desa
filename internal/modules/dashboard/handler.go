@@ -10,6 +10,8 @@ import (
 
 	"rt26/backend/internal/database"
 	"rt26/backend/internal/pkg/response"
+
+	"rt26/backend/internal/pkg/helper"
 )
 
 type Handler struct {
@@ -201,7 +203,7 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 			Aktivitas: row.Aktivitas,
 			Deskripsi: row.Deskripsi,
 			Nama:      row.Nama,
-			Waktu:     row.Waktu.Format("02-01-2006 15:04:05"),
+			Waktu:     helper.FormatTanggalWaktu(row.Waktu),
 		})
 	}
 

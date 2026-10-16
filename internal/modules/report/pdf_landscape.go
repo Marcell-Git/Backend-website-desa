@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
+
+	"rt26/backend/internal/pkg/helper"
 )
 
 // PDFTable mendeskripsikan tabel PDF berorientasi landscape (A4) dengan lebar dan
@@ -227,7 +229,7 @@ func writeFooter(pdf *gofpdf.Fpdf) {
 }
 
 func formatTanggalCetak() string {
-	return time.Now().Format("02 January 2006 15:04")
+	return helper.FormatTanggalWaktu(time.Now())
 }
 
 func generatePDFLandscape(t PDFTable) ([]byte, error) {

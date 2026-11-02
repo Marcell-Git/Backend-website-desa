@@ -305,7 +305,7 @@ func (h *Handler) UpdateAnggota(w http.ResponseWriter, r *http.Request) {
 			h.demoteKepala(tx, a.KartuKeluargaID)
 			tx.Model(&database.KartuKeluarga{}).Where("id = ?", a.KartuKeluargaID).Updates(map[string]interface{}{
 				"kepala_keluarga_id": id,
-				"updated_at":        "NOW()",
+				"updated_at":         "NOW()",
 			})
 		}
 		return nil

@@ -51,6 +51,8 @@ func (d *Database) RunMigrations() error {
 		&RekapKas{},
 		&RekapIuran{},
 		&RekapPengeluaran{},
+		&PengaturanKas{},
+		&PembayaranBulanan{},
 		&Pengumuman{},
 		&Pengurus{},
 		&AnakKos{},
@@ -93,6 +95,17 @@ func (d *Database) RunMigrations() error {
 		if err := d.DB.Model(&WebsiteSettings{}).Where("1 = 1").Update("show_statistik", true).Error; err != nil {
 			return fmt.Errorf("gagal mengaktifkan fitur statistik warga: %w", err)
 		}
+	}
+
+	// Satu KK hanya boleh punya satu pembayaran aktif per jenis, jenis iuran, dan bulan.
+	if err := d.DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS ux_pembayaran_bulanan
+		ON pembayaran_bulanan (kartu_keluarga_id, jenis, COALESCE(jenis_iuran_id, '00000000-0000-0000-0000-000000000000'::uuid), periode)
+		WHERE deleted_at IS NULL`).Error; err != nil {
+		return fmt.Errorf("gagal membuat index pembayaran bulanan: %w", err)
+	}
+	// Pembayaran lama dibuat sebelum ada kolom nominal_tagihan dan selalu dibayar pas.
+	if err := d.DB.Exec(`UPDATE pembayaran_bulanan SET nominal_tagihan = nominal WHERE nominal_tagihan = 0`).Error; err != nil {
+		return fmt.Errorf("gagal mengisi nominal tagihan pembayaran: %w", err)
 	}
 
 	if err := d.DB.Exec(`ALTER TABLE users DROP COLUMN IF EXISTS email`).Error; err != nil {

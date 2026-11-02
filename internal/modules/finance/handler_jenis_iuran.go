@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"rt26/backend/internal/database"
 	"rt26/backend/internal/pkg/helper"
 	"rt26/backend/internal/pkg/response"
@@ -14,6 +16,15 @@ import (
 func (h *Handler) ListJenisIuran(w http.ResponseWriter, r *http.Request) {
 	pg := helper.ParsePagination(r, 10)
 	search := helper.CleanSearch(r.URL.Query().Get("search"))
+	var aktifPeriode *time.Time
+	if s := r.URL.Query().Get("aktif_periode"); s != "" {
+		t, err := parsePeriode(s)
+		if err != nil {
+			response.ValidationError(w, map[string][]string{"aktif_periode": {err.Error()}})
+			return
+		}
+		aktifPeriode = &t
+	}
 
 	query := h.DB.WithContext(r.Context()).
 		Table("jenis_iuran").
@@ -23,6 +34,9 @@ func (h *Handler) ListJenisIuran(w http.ResponseWriter, r *http.Request) {
 		like := "%" + search + "%"
 		query = query.Where("nama ILIKE ?", like)
 	}
+	if aktifPeriode != nil {
+		query = whereIuranBerlaku(query, *aktifPeriode)
+	}
 
 	var total int64
 	countQuery := h.DB.WithContext(r.Context()).
@@ -31,6 +45,9 @@ func (h *Handler) ListJenisIuran(w http.ResponseWriter, r *http.Request) {
 	if search != "" {
 		like := "%" + search + "%"
 		countQuery = countQuery.Where("nama ILIKE ?", like)
+	}
+	if aktifPeriode != nil {
+		countQuery = whereIuranBerlaku(countQuery, *aktifPeriode)
 	}
 	countQuery.Count(&total)
 
@@ -64,17 +81,20 @@ func (h *Handler) CreateJenisIuran(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errs := map[string][]string{}
-	req.Nama = strings.TrimSpace(req.Nama)
-	if req.Nama == "" {
-		errs["nama"] = []string{"Nama jenis iuran wajib diisi"}
-	}
+	mulai, selesai, errs := validateJenisIuran(&req)
 	if len(errs) > 0 {
 		response.ValidationError(w, errs)
 		return
 	}
 
-	model := database.JenisIuran{Nama: req.Nama, Deskripsi: req.Deskripsi}
+	model := database.JenisIuran{
+		Nama:         req.Nama,
+		Deskripsi:    req.Deskripsi,
+		Nominal:      req.Nominal,
+		TipePeriode:  req.TipePeriode,
+		BulanMulai:   mulai,
+		BulanSelesai: selesai,
+	}
 	if err := h.DB.WithContext(r.Context()).Create(&model).Error; err != nil {
 		if helper.IsDuplicateErrorGORM(err) {
 			response.ValidationError(w, map[string][]string{"nama": {"Nama jenis iuran sudah ada"}})
@@ -97,11 +117,7 @@ func (h *Handler) UpdateJenisIuran(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errs := map[string][]string{}
-	req.Nama = strings.TrimSpace(req.Nama)
-	if req.Nama == "" {
-		errs["nama"] = []string{"Nama jenis iuran wajib diisi"}
-	}
+	mulai, selesai, errs := validateJenisIuran(&req)
 	if len(errs) > 0 {
 		response.ValidationError(w, errs)
 		return
@@ -110,9 +126,13 @@ func (h *Handler) UpdateJenisIuran(w http.ResponseWriter, r *http.Request) {
 	result := h.DB.WithContext(r.Context()).Model(&database.JenisIuran{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]interface{}{
-			"nama":       req.Nama,
-			"deskripsi":  req.Deskripsi,
-			"updated_at": time.Now(),
+			"nama":          req.Nama,
+			"deskripsi":     req.Deskripsi,
+			"nominal":       req.Nominal,
+			"tipe_periode":  req.TipePeriode,
+			"bulan_mulai":   mulai,
+			"bulan_selesai": selesai,
+			"updated_at":    time.Now(),
 		})
 	if result.Error != nil {
 		if helper.IsDuplicateErrorGORM(result.Error) {
@@ -138,6 +158,10 @@ func (h *Handler) DeleteJenisIuran(w http.ResponseWriter, r *http.Request) {
 	var count int64
 	h.DB.WithContext(r.Context()).Model(&database.RekapIuran{}).
 		Where("jenis_iuran_id = ? AND deleted_at IS NULL", id).Count(&count)
+	if count == 0 {
+		h.DB.WithContext(r.Context()).Model(&database.PembayaranBulanan{}).
+			Where("jenis_iuran_id = ? AND deleted_at IS NULL", id).Count(&count)
+	}
 	if count > 0 {
 		response.Error(w, http.StatusConflict, "Jenis iuran tidak dapat dihapus karena masih digunakan dalam rekap iuran")
 		return
@@ -158,4 +182,44 @@ func (h *Handler) DeleteJenisIuran(w http.ResponseWriter, r *http.Request) {
 	database.RecordAudit(r.Context(), h.DB, userIDPtr(r), "Jenis Iuran", "Hapus Jenis Iuran",
 		"Menghapus (soft) jenis iuran", nil, map[string]string{"id": id})
 	response.Success(w, http.StatusOK, "Jenis iuran berhasil dihapus", nil)
+}
+
+func validateJenisIuran(req *CreateJenisIuranRequest) (*time.Time, *time.Time, map[string][]string) {
+	errs := map[string][]string{}
+	req.Nama = strings.TrimSpace(req.Nama)
+	if req.Nama == "" {
+		errs["nama"] = []string{"Nama jenis iuran wajib diisi"}
+	}
+	if req.Nominal <= 0 {
+		errs["nominal"] = []string{"Nominal harus lebih besar dari 0"}
+	}
+	if req.TipePeriode == "" {
+		req.TipePeriode = tipeSelamanya
+	}
+	if req.TipePeriode != tipeSelamanya && req.TipePeriode != tipePeriode {
+		errs["tipe_periode"] = []string{"Tipe periode harus selamanya atau periode"}
+	}
+
+	var mulai, selesai *time.Time
+	if t, err := parsePeriode(req.BulanMulai); err != nil {
+		errs["bulan_mulai"] = []string{"Bulan mulai: " + err.Error()}
+	} else {
+		mulai = &t
+	}
+	if req.TipePeriode == tipePeriode {
+		if t, err := parsePeriode(req.BulanSelesai); err != nil {
+			errs["bulan_selesai"] = []string{"Bulan selesai: " + err.Error()}
+		} else if mulai != nil && t.Before(*mulai) {
+			errs["bulan_selesai"] = []string{"Bulan selesai tidak boleh sebelum bulan mulai"}
+		} else {
+			selesai = &t
+		}
+	}
+	return mulai, selesai, errs
+}
+
+// whereIuranBerlaku menyaring jenis iuran yang ditagihkan pada periode tertentu.
+func whereIuranBerlaku(q *gorm.DB, periode time.Time) *gorm.DB {
+	return q.Where("nominal > 0 AND bulan_mulai IS NOT NULL AND bulan_mulai <= ?", periode).
+		Where("(tipe_periode <> ? OR bulan_selesai IS NULL OR bulan_selesai >= ?)", tipePeriode, periode)
 }

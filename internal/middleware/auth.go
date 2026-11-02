@@ -12,11 +12,11 @@ import (
 type ctxKey string
 
 const (
-	CtxUserID ctxKey = "user_id"
+	CtxUserID   ctxKey = "user_id"
 	CtxUserName ctxKey = "user_nama"
-	CtxRoleID    ctxKey = "role_id"
-	CtxRole      ctxKey = "role"
-	CtxPerms     ctxKey = "permissions"
+	CtxRoleID   ctxKey = "role_id"
+	CtxRole     ctxKey = "role"
+	CtxPerms    ctxKey = "permissions"
 )
 
 type Claims struct {

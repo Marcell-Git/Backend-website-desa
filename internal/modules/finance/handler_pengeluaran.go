@@ -150,7 +150,7 @@ func (h *Handler) CreatePengeluaran(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model := database.RekapPengeluaran{
-		Tanggal:                tanggal,
+		Tanggal:               tanggal,
 		KategoriPengeluaranID: req.KategoriPengeluaranID,
 		Nominal:               req.Nominal,
 		Keterangan:            req.Keterangan,
@@ -204,7 +204,7 @@ func (h *Handler) UpdatePengeluaran(w http.ResponseWriter, r *http.Request) {
 	result := h.DB.WithContext(r.Context()).Model(&database.RekapPengeluaran{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]interface{}{
-			"tanggal":                  tanggal,
+			"tanggal":                 tanggal,
 			"kategori_pengeluaran_id": req.KategoriPengeluaranID,
 			"nominal":                 req.Nominal,
 			"keterangan":              req.Keterangan,

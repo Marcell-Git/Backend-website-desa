@@ -20,15 +20,15 @@ func NewHandler(db *gorm.DB) *Handler {
 }
 
 type scanRow struct {
-	ID          string  `gorm:"column:id"`
-	UserID      *string `gorm:"column:user_id"`
-	NamaUser    string  `gorm:"column:nama_user"`
-	RoleUser    string  `gorm:"column:role_user"`
-	Modul       string  `gorm:"column:modul"`
-	Aktivitas   string  `gorm:"column:aktivitas"`
-	Deskripsi   string  `gorm:"column:deskripsi"`
-	DataSebelum []byte  `gorm:"column:data_sebelum"`
-	DataSesudah []byte  `gorm:"column:data_sesudah"`
+	ID          string    `gorm:"column:id"`
+	UserID      *string   `gorm:"column:user_id"`
+	NamaUser    string    `gorm:"column:nama_user"`
+	RoleUser    string    `gorm:"column:role_user"`
+	Modul       string    `gorm:"column:modul"`
+	Aktivitas   string    `gorm:"column:aktivitas"`
+	Deskripsi   string    `gorm:"column:deskripsi"`
+	DataSebelum []byte    `gorm:"column:data_sebelum"`
+	DataSesudah []byte    `gorm:"column:data_sesudah"`
 	IPAddress   string    `gorm:"column:ip_address"`
 	UserAgent   string    `gorm:"column:user_agent"`
 	CreatedAt   time.Time `gorm:"column:created_at"`

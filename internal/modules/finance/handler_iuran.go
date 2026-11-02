@@ -22,11 +22,12 @@ func (h *Handler) ListIuran(w http.ResponseWriter, r *http.Request) {
 		RekapIuran
 		NamaJenisIuran string `json:"nama_jenis_iuran"`
 		NamaUser       string `json:"nama_user"`
+		DariPembayaran bool   `json:"dari_pembayaran"`
 	}
 
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_iuran i").
-		Select("i.*, ji.nama as nama_jenis_iuran, u.username as nama_user").
+		Select("i.*, ji.nama as nama_jenis_iuran, u.username as nama_user, EXISTS (SELECT 1 FROM pembayaran_bulanan pb WHERE pb.rekap_iuran_id = i.id AND pb.deleted_at IS NULL) as dari_pembayaran").
 		Joins("LEFT JOIN jenis_iuran ji ON ji.id = i.jenis_iuran_id AND ji.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = i.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("i.deleted_at IS NULL")
@@ -100,12 +101,13 @@ func (h *Handler) GetIuran(w http.ResponseWriter, r *http.Request) {
 		RekapIuran
 		NamaJenisIuran string `json:"nama_jenis_iuran"`
 		NamaUser       string `json:"nama_user"`
+		DariPembayaran bool   `json:"dari_pembayaran"`
 	}
 
 	var item iuranDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("rekap_iuran i").
-		Select("i.*, ji.nama as nama_jenis_iuran, u.username as nama_user").
+		Select("i.*, ji.nama as nama_jenis_iuran, u.username as nama_user, EXISTS (SELECT 1 FROM pembayaran_bulanan pb WHERE pb.rekap_iuran_id = i.id AND pb.deleted_at IS NULL) as dari_pembayaran").
 		Joins("LEFT JOIN jenis_iuran ji ON ji.id = i.jenis_iuran_id AND ji.deleted_at IS NULL").
 		Joins("LEFT JOIN users u ON u.id = i.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("i.id = ? AND i.deleted_at IS NULL", id).
@@ -168,6 +170,10 @@ func (h *Handler) CreateIuran(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) UpdateIuran(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if h.dariPembayaran(r, "rekap_iuran_id", id) {
+		response.Error(w, http.StatusConflict, pesanDariPembayaran)
+		return
+	}
 	var req UpdateRekapIuranRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "Format request tidak valid")
@@ -226,6 +232,10 @@ func (h *Handler) UpdateIuran(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DeleteIuran(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if h.dariPembayaran(r, "rekap_iuran_id", id) {
+		response.Error(w, http.StatusConflict, pesanDariPembayaran)
+		return
+	}
 
 	var before database.RekapIuran
 	h.DB.WithContext(r.Context()).Where("id = ? AND deleted_at IS NULL", id).First(&before)

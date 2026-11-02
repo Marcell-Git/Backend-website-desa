@@ -16,11 +16,11 @@ type PublicRingkasan struct {
 }
 
 type PublicRekapBulanan struct {
-	Bulan            int     `json:"bulan"`
-	Kas              float64 `json:"kas"`
-	Iuran            float64 `json:"iuran"`
-	Pengeluaran      float64 `json:"pengeluaran"`
-	SaldoAkhir       float64 `json:"saldo_akhir"`
+	Bulan       int     `json:"bulan"`
+	Kas         float64 `json:"kas"`
+	Iuran       float64 `json:"iuran"`
+	Pengeluaran float64 `json:"pengeluaran"`
+	SaldoAkhir  float64 `json:"saldo_akhir"`
 }
 
 type PublicLaporanResponse struct {

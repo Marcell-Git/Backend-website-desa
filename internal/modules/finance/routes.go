@@ -9,6 +9,11 @@ import (
 // Register mendaftarkan route yang butuh login.
 func Register(r chi.Router, h *Handler) {
 	r.Route("/kas", func(r chi.Router) {
+		r.With(middleware.RequirePermission("kas", "view")).Get("/pengaturan", h.GetPengaturanKas)
+		r.With(middleware.RequirePermission("kas", "update")).Put("/pengaturan", h.UpdatePengaturanKas)
+		r.With(middleware.RequirePermission("kas", "view")).Get("/pembayaran", h.ListPembayaranKas)
+		r.With(middleware.RequirePermission("kas", "create")).Post("/pembayaran", h.KonfirmasiPembayaranKas)
+		r.With(middleware.RequirePermission("kas", "delete")).Delete("/pembayaran/{id}", h.BatalPembayaranKas)
 		r.With(middleware.RequirePermission("kas", "view")).Get("/", h.ListKas)
 		r.With(middleware.RequirePermission("kas", "create")).Post("/", h.CreateKas)
 		r.With(middleware.RequirePermission("kas", "view")).Get("/{id}", h.GetKas)
@@ -24,6 +29,9 @@ func Register(r chi.Router, h *Handler) {
 	})
 
 	r.Route("/iuran", func(r chi.Router) {
+		r.With(middleware.RequirePermission("iuran", "view")).Get("/pembayaran", h.ListPembayaranIuran)
+		r.With(middleware.RequirePermission("iuran", "create")).Post("/pembayaran", h.KonfirmasiPembayaranIuran)
+		r.With(middleware.RequirePermission("iuran", "delete")).Delete("/pembayaran/{id}", h.BatalPembayaranIuran)
 		r.With(middleware.RequirePermission("iuran", "view")).Get("/", h.ListIuran)
 		r.With(middleware.RequirePermission("iuran", "create")).Post("/", h.CreateIuran)
 		r.With(middleware.RequirePermission("iuran", "view")).Get("/{id}", h.GetIuran)

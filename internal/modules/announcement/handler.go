@@ -219,11 +219,11 @@ func (h *Handler) UpdatePengumuman(w http.ResponseWriter, r *http.Request) {
 	result := h.DB.WithContext(r.Context()).Model(&database.Pengumuman{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]interface{}{
-			"judul":              req.Judul,
-			"isi":                req.Isi,
-			"tanggal_publikasi":  tanggal,
-			"status":             req.Status,
-			"updated_at":         time.Now(),
+			"judul":             req.Judul,
+			"isi":               req.Isi,
+			"tanggal_publikasi": tanggal,
+			"status":            req.Status,
+			"updated_at":        time.Now(),
 		})
 	if result.Error != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")

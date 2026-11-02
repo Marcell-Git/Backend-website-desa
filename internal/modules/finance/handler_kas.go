@@ -19,12 +19,13 @@ func (h *Handler) ListKas(w http.ResponseWriter, r *http.Request) {
 
 	type kasRow struct {
 		RekapKas
-		NamaUser string `json:"nama_user"`
+		NamaUser       string `json:"nama_user"`
+		DariPembayaran bool   `json:"dari_pembayaran"`
 	}
 
 	query := h.DB.WithContext(r.Context()).
 		Table("rekap_kas k").
-		Select("k.*, u.username as nama_user").
+		Select("k.*, u.username as nama_user, EXISTS (SELECT 1 FROM pembayaran_bulanan pb WHERE pb.rekap_kas_id = k.id AND pb.deleted_at IS NULL) as dari_pembayaran").
 		Joins("LEFT JOIN users u ON u.id = k.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("k.deleted_at IS NULL")
 
@@ -88,13 +89,14 @@ func (h *Handler) GetKas(w http.ResponseWriter, r *http.Request) {
 
 	type kasDetail struct {
 		RekapKas
-		NamaUser string `json:"nama_user"`
+		NamaUser       string `json:"nama_user"`
+		DariPembayaran bool   `json:"dari_pembayaran"`
 	}
 
 	var item kasDetail
 	err := h.DB.WithContext(r.Context()).
 		Table("rekap_kas k").
-		Select("k.*, u.username as nama_user").
+		Select("k.*, u.username as nama_user, EXISTS (SELECT 1 FROM pembayaran_bulanan pb WHERE pb.rekap_kas_id = k.id AND pb.deleted_at IS NULL) as dari_pembayaran").
 		Joins("LEFT JOIN users u ON u.id = k.dibuat_oleh AND u.deleted_at IS NULL").
 		Where("k.id = ? AND k.deleted_at IS NULL", id).
 		Scan(&item).Error
@@ -149,6 +151,10 @@ func (h *Handler) CreateKas(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) UpdateKas(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if h.dariPembayaran(r, "rekap_kas_id", id) {
+		response.Error(w, http.StatusConflict, pesanDariPembayaran)
+		return
+	}
 	var req UpdateRekapKasRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "Format request tidak valid")
@@ -178,11 +184,11 @@ func (h *Handler) UpdateKas(w http.ResponseWriter, r *http.Request) {
 	result := h.DB.WithContext(r.Context()).Model(&database.RekapKas{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]interface{}{
-			"tanggal":     tanggal,
-			"sumber_kas":  req.SumberKas,
-			"nominal":     req.Nominal,
-			"keterangan":  req.Keterangan,
-			"updated_at":  time.Now(),
+			"tanggal":    tanggal,
+			"sumber_kas": req.SumberKas,
+			"nominal":    req.Nominal,
+			"keterangan": req.Keterangan,
+			"updated_at": time.Now(),
 		})
 	if result.Error != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
@@ -200,6 +206,10 @@ func (h *Handler) UpdateKas(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DeleteKas(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if h.dariPembayaran(r, "rekap_kas_id", id) {
+		response.Error(w, http.StatusConflict, pesanDariPembayaran)
+		return
+	}
 
 	var before database.RekapKas
 	h.DB.WithContext(r.Context()).Where("id = ? AND deleted_at IS NULL", id).First(&before)

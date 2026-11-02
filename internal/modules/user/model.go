@@ -53,13 +53,13 @@ type RoleResponse struct {
 }
 
 type RoleDetailResponse struct {
-	ID          string             `json:"id"`
-	Nama        string             `json:"nama"`
-	Deskripsi   string             `json:"deskripsi"`
-	Status      bool               `json:"status"`
-	Permissions []PermissionItem   `json:"permissions"`
-	CreatedAt   time.Time          `json:"created_at"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	ID          string           `json:"id"`
+	Nama        string           `json:"nama"`
+	Deskripsi   string           `json:"deskripsi"`
+	Status      bool             `json:"status"`
+	Permissions []PermissionItem `json:"permissions"`
+	CreatedAt   time.Time        `json:"created_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
 }
 
 type PermissionItem struct {

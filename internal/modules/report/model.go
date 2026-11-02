@@ -3,36 +3,36 @@ package report
 import "time"
 
 type ReportFilter struct {
-	Bulan                  string `json:"bulan"`
-	Tahun                  string `json:"tahun"`
-	TanggalMulai           string `json:"tanggal_mulai"`
-	TanggalAkhir           string `json:"tanggal_akhir"`
-	JenisIuranID           string `json:"jenis_iuran_id"`
-	KategoriPengeluaranID  string `json:"kategori_pengeluaran_id"`
+	Bulan                 string `json:"bulan"`
+	Tahun                 string `json:"tahun"`
+	TanggalMulai          string `json:"tanggal_mulai"`
+	TanggalAkhir          string `json:"tanggal_akhir"`
+	JenisIuranID          string `json:"jenis_iuran_id"`
+	KategoriPengeluaranID string `json:"kategori_pengeluaran_id"`
 }
 
 type KasRow struct {
-	Tanggal   time.Time `json:"tanggal"`
-	SumberKas string    `json:"sumber_kas"`
-	Nominal   float64   `json:"nominal"`
+	Tanggal    time.Time `json:"tanggal"`
+	SumberKas  string    `json:"sumber_kas"`
+	Nominal    float64   `json:"nominal"`
 	Keterangan *string   `json:"keterangan,omitempty"`
 	DibuatOleh string    `json:"dibuat_oleh"`
 }
 
 type IuranRow struct {
-	Tanggal     time.Time `json:"tanggal"`
-	JenisIuran  string    `json:"jenis_iuran"`
-	Nominal     float64   `json:"nominal"`
-	Keterangan  *string   `json:"keterangan,omitempty"`
-	DibuatOleh  string    `json:"dibuat_oleh"`
+	Tanggal    time.Time `json:"tanggal"`
+	JenisIuran string    `json:"jenis_iuran"`
+	Nominal    float64   `json:"nominal"`
+	Keterangan *string   `json:"keterangan,omitempty"`
+	DibuatOleh string    `json:"dibuat_oleh"`
 }
 
 type PengeluaranRow struct {
-	Tanggal                time.Time `json:"tanggal"`
-	KategoriPengeluaran    string    `json:"kategori_pengeluaran"`
-	Nominal                float64   `json:"nominal"`
-	Keterangan             *string   `json:"keterangan,omitempty"`
-	DibuatOleh             string    `json:"dibuat_oleh"`
+	Tanggal             time.Time `json:"tanggal"`
+	KategoriPengeluaran string    `json:"kategori_pengeluaran"`
+	Nominal             float64   `json:"nominal"`
+	Keterangan          *string   `json:"keterangan,omitempty"`
+	DibuatOleh          string    `json:"dibuat_oleh"`
 }
 
 type KeuanganSummary struct {
@@ -45,8 +45,8 @@ type KeuanganSummary struct {
 }
 
 type KeuanganReport struct {
-	Summary         KeuanganSummary  `json:"summary"`
-	Kas             []KasRow         `json:"kas"`
-	Iuran           []IuranRow       `json:"iuran"`
-	Pengeluaran     []PengeluaranRow `json:"pengeluaran"`
+	Summary     KeuanganSummary  `json:"summary"`
+	Kas         []KasRow         `json:"kas"`
+	Iuran       []IuranRow       `json:"iuran"`
+	Pengeluaran []PengeluaranRow `json:"pengeluaran"`
 }

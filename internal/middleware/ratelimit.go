@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	ipWindow        = time.Minute
-	ipMaxRequests   = 10
-	usernameWindow  = 15 * time.Minute
+	ipWindow         = time.Minute
+	ipMaxRequests    = 10
+	usernameWindow   = 15 * time.Minute
 	usernameMaxFails = 5
-	maxBodyInspect  = 64 << 10
+	maxBodyInspect   = 64 << 10
 )
 
 type LoginRateLimiter struct {

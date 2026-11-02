@@ -170,11 +170,11 @@ func (h *Handler) LaporanKeuangan(w http.ResponseWriter, r *http.Request) {
 
 func parseFilter(r *http.Request) ReportFilter {
 	return ReportFilter{
-		Bulan:                  r.URL.Query().Get("bulan"),
-		Tahun:                  r.URL.Query().Get("tahun"),
-		TanggalMulai:           r.URL.Query().Get("tanggal_mulai"),
-		TanggalAkhir:           r.URL.Query().Get("tanggal_akhir"),
-		JenisIuranID:           r.URL.Query().Get("jenis_iuran_id"),
-		KategoriPengeluaranID:  r.URL.Query().Get("kategori_pengeluaran_id"),
+		Bulan:                 r.URL.Query().Get("bulan"),
+		Tahun:                 r.URL.Query().Get("tahun"),
+		TanggalMulai:          r.URL.Query().Get("tanggal_mulai"),
+		TanggalAkhir:          r.URL.Query().Get("tanggal_akhir"),
+		JenisIuranID:          r.URL.Query().Get("jenis_iuran_id"),
+		KategoriPengeluaranID: r.URL.Query().Get("kategori_pengeluaran_id"),
 	}
 }

@@ -35,7 +35,7 @@ func (h *Handler) ListJenisIuran(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("nama ILIKE ?", like)
 	}
 	if aktifPeriode != nil {
-		query = whereIuranBerlaku(query, *aktifPeriode)
+		query = WhereIuranBerlaku(query, *aktifPeriode)
 	}
 
 	var total int64
@@ -47,7 +47,7 @@ func (h *Handler) ListJenisIuran(w http.ResponseWriter, r *http.Request) {
 		countQuery = countQuery.Where("nama ILIKE ?", like)
 	}
 	if aktifPeriode != nil {
-		countQuery = whereIuranBerlaku(countQuery, *aktifPeriode)
+		countQuery = WhereIuranBerlaku(countQuery, *aktifPeriode)
 	}
 	countQuery.Count(&total)
 
@@ -218,8 +218,8 @@ func validateJenisIuran(req *CreateJenisIuranRequest) (*time.Time, *time.Time, m
 	return mulai, selesai, errs
 }
 
-// whereIuranBerlaku menyaring jenis iuran yang ditagihkan pada periode tertentu.
-func whereIuranBerlaku(q *gorm.DB, periode time.Time) *gorm.DB {
+// WhereIuranBerlaku menyaring jenis iuran yang ditagihkan pada periode tertentu.
+func WhereIuranBerlaku(q *gorm.DB, periode time.Time) *gorm.DB {
 	return q.Where("nominal > 0 AND bulan_mulai IS NOT NULL AND bulan_mulai <= ?", periode).
 		Where("(tipe_periode <> ? OR bulan_selesai IS NULL OR bulan_selesai >= ?)", tipePeriode, periode)
 }

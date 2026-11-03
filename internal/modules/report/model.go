@@ -35,6 +35,25 @@ type PengeluaranRow struct {
 	DibuatOleh          string    `json:"dibuat_oleh"`
 }
 
+// StatusPembayaranRow adalah status bayar satu KK untuk satu tagihan bulanan.
+type StatusPembayaranRow struct {
+	NomorKK            string
+	NamaKepalaKeluarga *string
+	Alamat             string
+	Lunas              bool
+	TanggalBayar       *time.Time
+	Nominal            *float64
+}
+
+// TagihanPembayaran adalah daftar KK sudah/belum bayar untuk kas atau satu jenis iuran.
+type TagihanPembayaran struct {
+	Nama           string
+	SudahBayar     int
+	BelumBayar     int
+	TotalTerkumpul float64
+	Warga          []StatusPembayaranRow
+}
+
 type KeuanganSummary struct {
 	TotalKas         float64 `json:"total_kas"`
 	TotalIuran       float64 `json:"total_iuran"`

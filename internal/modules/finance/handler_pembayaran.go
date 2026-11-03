@@ -85,7 +85,6 @@ type ringkasanPembayaran struct {
 // listStatusPembayaran menampilkan seluruh KK aktif beserta status pembayarannya
 // untuk satu jenis tagihan pada satu bulan.
 func (h *Handler) listStatusPembayaran(w http.ResponseWriter, r *http.Request, jenis string, jenisIuranID *string, periode time.Time, nominal float64, title string) {
-	pg := helper.ParsePagination(r, 10)
 	search := helper.CleanSearch(r.URL.Query().Get("search"))
 	status := r.URL.Query().Get("status")
 
@@ -137,28 +136,18 @@ func (h *Handler) listStatusPembayaran(w http.ResponseWriter, r *http.Request, j
 		return q
 	}
 
-	var total int64
-	filter(base()).Count(&total)
-
 	list := make([]statusPembayaranRow, 0)
 	if err := filter(base()).
 		Select(`kk.id AS kartu_keluarga_id, kk.nomor_kk, a.nama_lengkap AS nama_kepala_keluarga, kk.alamat,
 			p.id AS pembayaran_id, p.tanggal_bayar, p.nominal, p.nominal_tagihan, (p.id IS NOT NULL) AS lunas`).
 		Order("(p.id IS NOT NULL) ASC, a.nama_lengkap ASC NULLS LAST, kk.nomor_kk ASC").
-		Offset(pg.Offset()).Limit(pg.Limit).
 		Scan(&list).Error; err != nil {
 		response.Error(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	response.Success(w, http.StatusOK, title, map[string]interface{}{
-		"data": list,
-		"pagination": response.Pagination{
-			Page:      pg.Page,
-			Limit:     pg.Limit,
-			TotalData: total,
-			TotalPage: pg.TotalPage(total),
-		},
+		"data":      list,
 		"ringkasan": ringkasan,
 	})
 }
